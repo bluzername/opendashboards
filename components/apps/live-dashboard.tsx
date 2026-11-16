@@ -41,16 +41,19 @@ export function LiveDashboard({
  * dashboard, until the app opens the dashboard's own page.
  */
 export function NewDashboard({ response }: { response?: string }) {
-  return <DashboardView response={response} />;
+  return <DashboardView response={response} fill />;
 }
 
+/** `fill`: the renderer takes the whole area, so the pending loader fills it, not just its minimum. */
 function DashboardView({
   id,
   response,
+  fill = false,
   children,
 }: {
   id?: string;
   response?: string;
+  fill?: boolean;
   children?: React.ReactNode;
 }) {
   // Where the loading capsule draws: over the bottom of the dashboard, outside the part that scrolls.
@@ -63,6 +66,7 @@ function DashboardView({
           id={id}
           response={response}
           preview={false}
+          className={cn(fill && "h-full")}
           library={library}
           interpreter={interpreter}
           onError={(errors) => {
@@ -70,7 +74,7 @@ function DashboardView({
           }}
         >
           <LiveArtifactRenderer.Chrome>
-            <LiveArtifactRenderer.Content>
+            <LiveArtifactRenderer.Content className={cn(fill && "h-full")}>
               <LiveArtifactRenderer.Pending />
               {/* In place of the renderer's top-right pill, which sat on the filter bar. */}
               <LoadingCapsule container={overlay} />
