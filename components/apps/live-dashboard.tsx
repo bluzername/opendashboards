@@ -28,14 +28,39 @@ export function LiveDashboard({
   dashboard: { id: string; artifactId: string; title: string; description: string | null };
 }) {
   const response = useDashboardResponse(dashboard.artifactId);
+  return (
+    <DashboardView id={dashboard.artifactId} response={response}>
+      <DashboardTitle appId={appId} dashboard={dashboard} />
+    </DashboardView>
+  );
+}
+
+/**
+ * The dashboard the Build chat is creating, before the app has a page for it. Without
+ * a response the renderer is pending and shows its loader; with one it builds the
+ * dashboard, until the app opens the dashboard's own page.
+ */
+export function NewDashboard({ response }: { response?: string }) {
+  return <DashboardView response={response} />;
+}
+
+function DashboardView({
+  id,
+  response,
+  children,
+}: {
+  id?: string;
+  response?: string;
+  children?: React.ReactNode;
+}) {
   // Where the loading capsule draws: over the bottom of the dashboard, outside the part that scrolls.
   const [overlay, setOverlay] = useState<HTMLDivElement | null>(null);
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto bg-white">
-        <DashboardTitle appId={appId} dashboard={dashboard} />
+        {children}
         <LiveArtifactRenderer
-          id={dashboard.artifactId}
+          id={id}
           response={response}
           preview={false}
           library={library}
@@ -46,6 +71,7 @@ export function LiveDashboard({
         >
           <LiveArtifactRenderer.Chrome>
             <LiveArtifactRenderer.Content>
+              <LiveArtifactRenderer.Pending />
               {/* In place of the renderer's top-right pill, which sat on the filter bar. */}
               <LoadingCapsule container={overlay} />
               <LiveArtifactRenderer.Error />
@@ -61,11 +87,12 @@ export function LiveDashboard({
 /**
  * A small capsule at the bottom centre while the dashboard generates or its data loads. It
  * waits a moment before showing, so a quick reload doesn't flash it, and fades out when done.
+ * While pending, the renderer's loader says what's happening instead.
  */
 function LoadingCapsule({ container }: { container: HTMLElement | null }) {
-  const { isLoading, isStreaming, error } = useArtifactRenderer();
+  const { isLoading, isPending, isStreaming, error } = useArtifactRenderer();
   if (!container) return null;
-  const shown = isLoading && !error;
+  const shown = isLoading && !isPending && !error;
   return createPortal(
     <div
       role="status"
