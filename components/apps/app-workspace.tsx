@@ -4,7 +4,7 @@ import { OpenUICloudProvider } from "@openuidev/react-ui/cloud";
 import { ChevronLeftIcon, PanelRightCloseIcon, PanelRightOpenIcon, SparklesIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createContext, use, useCallback, useMemo, useState } from "react";
+import { createContext, use, useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 
 import { renameAppAction } from "@/app/(app)/apps/actions";
 import { InlineRename } from "@/components/inline-rename";
@@ -12,13 +12,23 @@ import { Button } from "@/components/ui/button";
 import { appPath, dashboardPath, parseAppPath } from "@/lib/apps/paths";
 import { cn } from "@/lib/utils";
 
+import { NewDashboard } from "./live-dashboard";
+
 type Dashboard = { id: string; title: string };
 
 const BuildPanelContext = createContext<{ open: boolean; setOpen: (open: boolean) => void } | null>(null);
 
+/**
+ * A dashboard the Build chat is creating, shown in place of the page it started
+ * on (`at`) until the app opens it: pending while the call runs, then streaming
+ * from Cloud's `response`.
+ */
+export type Creating = { at: string; response?: string };
+
 type DashboardResponses = {
   responses: Readonly<Record<string, string>>;
   publish: (artifactId: string, response: string) => void;
+  setCreating: Dispatch<SetStateAction<Creating | null>>;
 };
 
 const DashboardResponsesContext = createContext<DashboardResponses | null>(null);
@@ -41,6 +51,11 @@ export function useDashboardResponse(artifactId: string): string | undefined {
 /** For the Build chat: hands a create/edit response to the dashboard it's for. */
 export function usePublishDashboardResponse() {
   return useDashboardResponses().publish;
+}
+
+/** For the Build chat: shows the dashboard it's creating, before the app has a page for it. */
+export function useSetCreatingDashboard() {
+  return useDashboardResponses().setCreating;
 }
 
 const RenameAppContext = createContext<(() => void) | null>(null);
@@ -142,9 +157,16 @@ export function AppWorkspace({
       setResponses((current) => (current[artifactId] === response ? current : { ...current, [artifactId]: response })),
     [],
   );
-  const dashboardResponses = useMemo(() => ({ responses, publish }), [responses, publish]);
+  const [creating, setCreating] = useState<Creating | null>(null);
+  const dashboardResponses = useMemo(() => ({ responses, publish, setCreating }), [responses, publish]);
   const [renaming, setRenaming] = useState(false);
   const startRename = useCallback(() => setRenaming(true), []);
+  // Moving to another page, or to the new dashboard once it opens, hands back to the page.
+  const pathname = usePathname();
+  // Leaving the page once the response is in means the app opened the new dashboard
+  // (or you moved on): it's done, so going back shows that page again.
+  if (creating?.response && creating.at !== pathname) setCreating(null);
+  const showCreating = creating !== null && creating.at === pathname;
 
   return (
     // One Cloud connection for the workspace: the chat and the dashboard
@@ -182,7 +204,7 @@ export function AppWorkspace({
         <div className="relative flex min-h-0 flex-1">
           <div className="flex min-w-0 flex-1 flex-col">
             <MobileDashboardTabs appId={appId} dashboards={dashboards} />
-            {children}
+            {showCreating ? <NewDashboard response={creating.response} /> : children}
           </div>
 
           <aside

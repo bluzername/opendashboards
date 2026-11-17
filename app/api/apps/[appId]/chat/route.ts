@@ -1,5 +1,6 @@
 import { EventType, type BaseEvent } from "@ag-ui/core";
 import { storeChatCompletionHistory } from "@openuidev/server/openai";
+import { waitUntil } from "@vercel/functions";
 import { APIError } from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
@@ -7,7 +8,7 @@ import { secrets } from "@/config";
 import { track } from "@/lib/analytics";
 import { agentTools, getGateway, maxRounds, model, SYSTEM_PROMPT, type TurnContext } from "@/lib/agent";
 import { createAgUiTranslator, sse } from "@/lib/agent/ag-ui";
-import { chatBodySchema, VIEWING_DASHBOARD, type ChatBody } from "@/lib/agent/messages";
+import { answerStoppedCalls, chatBodySchema, VIEWING_DASHBOARD, type ChatBody } from "@/lib/agent/messages";
 import { getAppService, getThreadService } from "@/lib/apps";
 import { getDashboardService } from "@/lib/dashboards";
 import { HttpError, readJson, route } from "@/lib/http";
@@ -21,8 +22,8 @@ const MAX_BODY_BYTES = 2 * 1024 * 1024;
 /**
  * One turn of the Build chat. Runs the agent's tool loop over OpenUI Gateway
  * and streams it as AG-UI events (text, tool calls and their results) for
- * the chat's `agUIAdapter`. When the turn ends it's saved to the thread in
- * OpenUI Cloud.
+ * the chat's `agUIAdapter`. When the turn ends, or the user stops it, it's
+ * saved to the thread in OpenUI Cloud.
  */
 export const POST = route<Ctx>(async (request, user, { params }) => {
   const { appId } = await params;
@@ -97,6 +98,19 @@ export const POST = route<Ctx>(async (request, user, { params }) => {
       // The new turn: the user's message, then every message the loop added.
       const newMessages = () => runner.messages.slice(system.length - 1 + messages.length) as ChatCompletionMessageParam[];
 
+      const save = async (turnMessages: ChatCompletionMessageParam[]) => {
+        try {
+          await storeChatCompletionHistory({
+            apiKey: secrets.thesysApiKey() ?? "",
+            conversationId: threadId,
+            messages: turnMessages,
+          });
+          await threads.touch(user.id, appId, threadId);
+        } catch (error) {
+          logError("chat.save", error);
+        }
+      };
+
       try {
         await runner.done();
         translate.finish();
@@ -106,8 +120,17 @@ export const POST = route<Ctx>(async (request, user, { params }) => {
         if (request.signal.aborted) {
           count("opendashboards.chat.turn", { outcome: "cancelled", cause: "none" });
           trackTurn("cancelled", "none", newMessages());
+          // Stopped: saved as far as it got, including the message the model was still
+          // writing, so the chat still has it after a reload. The browser has gone, so
+          // waitUntil keeps the function alive for the save.
+          const writing = runner.currentChatCompletionSnapshot?.choices[0]?.message;
+          const partial: ChatCompletionMessageParam[] =
+            writing?.content || writing?.tool_calls?.length
+              ? [{ role: "assistant", content: writing.content ?? null, tool_calls: writing.tool_calls }]
+              : [];
+          waitUntil(save(answerStoppedCalls([...newMessages(), ...partial])));
           controller.close();
-          return; // Cancelled: save nothing.
+          return;
         }
         logError("chat.turn", error);
         const failure = turnFailure(error);
@@ -122,16 +145,7 @@ export const POST = route<Ctx>(async (request, user, { params }) => {
       // Saved before the stream closes: a Vercel Function can stop once its response ends.
       const turnMessages = newMessages();
       trackTurn("completed", "none", turnMessages);
-      try {
-        await storeChatCompletionHistory({
-          apiKey: secrets.thesysApiKey() ?? "",
-          conversationId: threadId,
-          messages: turnMessages,
-        });
-        await threads.touch(user.id, appId, threadId);
-      } catch (error) {
-        logError("chat.save", error);
-      }
+      await save(turnMessages);
       controller.close();
     },
   });

@@ -36,7 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { dashboardPath, parseAppPath } from "@/lib/apps/paths";
-import { usePublishDashboardResponse } from "./app-workspace";
+import { usePublishDashboardResponse, useSetCreatingDashboard } from "./app-workspace";
 import { scopeStorageToApp } from "@/lib/apps/thread-storage";
 import { cn } from "@/lib/utils";
 
@@ -466,8 +466,10 @@ function TurnEffects({
 
   // Cloud's create/edit responses go to the dashboard they're for as they
   // arrive, so an open dashboard follows the edit; a new one opens to be watched.
+  // While a create call runs, the workspace shows the new dashboard pending.
   const messages = useThread((s) => s.messages);
   const publish = usePublishDashboardResponse();
+  const setCreating = useSetCreatingDashboard();
   const handled = useRef(new Set<string>());
   const opening = useRef<string | null>(null);
   useEffect(() => {
@@ -478,20 +480,42 @@ function TurnEffects({
       if (message.role !== "assistant") continue;
       for (const call of message.toolCalls ?? []) toolNames.set(call.id, call.function.name);
     }
+    const answered = new Set<string>();
     for (const message of messages) {
-      if (message.role !== "tool" || handled.current.has(message.id)) continue;
+      if (message.role !== "tool") continue;
+      answered.add(message.toolCallId);
+      if (handled.current.has(message.id)) continue;
       handled.current.add(message.id);
       const tool = toolNames.get(message.toolCallId);
       if (tool !== "create_dashboard" && tool !== "edit_dashboard") continue;
       const artifactId = artifactIdOf(message.content);
-      if (!artifactId) continue;
+      if (!artifactId) {
+        if (tool === "create_dashboard") setCreating(null); // It failed: nothing to show.
+        continue;
+      }
       publish(artifactId, message.content);
       if (tool === "create_dashboard") {
         opening.current = artifactId;
+        setCreating((current) => ({ at: current?.at ?? pathname, response: message.content }));
         router.refresh(); // The server has recorded it; the sidebar picks it up.
       }
     }
-  }, [isRunning, messages, publish, router]);
+    // A create call in this turn that the model is still writing, or that's still
+    // running: pending on the page it started from. A second one replaces a first
+    // that's answered. Earlier turns don't count: a stopped one never gets an answer.
+    const turn = messages.slice(messages.findLastIndex((message) => message.role === "user") + 1);
+    const waiting = turn.some(
+      (message) =>
+        message.role === "assistant" &&
+        (message.toolCalls ?? []).some((call) => call.function.name === "create_dashboard" && !answered.has(call.id)),
+    );
+    if (waiting) setCreating((current) => (current && !current.response ? current : { at: pathname }));
+  }, [isRunning, messages, pathname, publish, router, setCreating]);
+
+  // A run that ends without a response, stopped or failed, leaves nothing pending.
+  useEffect(() => {
+    if (!isRunning) setCreating((current) => (current?.response ? current : null));
+  }, [isRunning, setCreating]);
 
   useEffect(() => {
     if (!opening.current) return;

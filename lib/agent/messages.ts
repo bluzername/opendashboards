@@ -7,6 +7,7 @@ import { threadIdSchema } from "@/lib/apps/schemas";
  * What the Build chat may send: the thread and its history in Chat
  * Completions shape (Agent Interface's `openAIMessageFormat`). Text only; no
  * system messages; tool results only answering a tool call just before them.
+ * A call left without a result, by a turn the user stopped, gets one saying so.
  */
 
 const MAX_MESSAGES = 200;
@@ -57,7 +58,8 @@ export const chatBodySchema = z
       .min(1)
       .max(MAX_MESSAGES)
       .refine((messages) => messages.at(-1)?.role === "user", "The last message must be the user's.")
-      .refine(toolResultsAnswerCalls, "Tool results must follow the call they answer."),
+      .refine(toolResultsAnswerCalls, "Tool results must follow the call they answer.")
+      .transform(answerStoppedCalls),
   })
   .loose();
 
@@ -67,16 +69,54 @@ export type ChatBody = {
   context?: { description: string; value: string }[];
 };
 
-/** Every tool call is answered, in order, before the next non-tool message. */
-function toolResultsAnswerCalls(messages: z.infer<typeof message>[]): boolean {
+type Message = z.infer<typeof message>;
+
+/** Every tool result answers a call in the assistant message just before it, once. */
+function toolResultsAnswerCalls(messages: Message[]): boolean {
   let open = new Set<string>();
   for (const m of messages) {
     if (m.role === "tool") {
       if (!open.delete(m.tool_call_id)) return false;
       continue;
     }
-    if (open.size > 0) return false;
     open = new Set(m.role === "assistant" ? (m.tool_calls ?? []).map((call) => call.id) : []);
   }
-  return open.size === 0;
+  return true;
+}
+
+/** A stopped call's result, in the agent tools' error shape. */
+const STOPPED = JSON.stringify({ error: { message: "Stopped by the user before it finished." } });
+
+/**
+ * Stopping a turn mid tool call leaves the call without a result, which the
+ * model API rejects, so every later message would fail. Each gets an error
+ * result instead: the model knows it didn't finish, and the chat carries on.
+ * Applied to the history a turn is sent with, and to a stopped turn before it's saved.
+ */
+export function answerStoppedCalls(messages: ChatCompletionMessageParam[]): ChatCompletionMessageParam[] {
+  const answered = new Set(messages.flatMap((m) => (m.role === "tool" ? [m.tool_call_id] : [])));
+  return messages.flatMap((m): ChatCompletionMessageParam[] => {
+    if (m.role !== "assistant") return [m];
+    const stopped = (m.tool_calls ?? []).filter((call) => !answered.has(call.id));
+    if (stopped.length === 0) return [m];
+    // Stopped while the model was still writing it, a call's arguments are cut-off JSON, which Gateway fails on.
+    const calls = m.tool_calls?.map((call) =>
+      stopped.includes(call) && call.type === "function" && !parses(call.function.arguments)
+        ? { ...call, function: { ...call.function, arguments: "{}" } }
+        : call,
+    );
+    return [
+      { ...m, tool_calls: calls },
+      ...stopped.map((call) => ({ role: "tool" as const, tool_call_id: call.id, content: STOPPED })),
+    ];
+  });
+}
+
+function parses(json: string): boolean {
+  try {
+    JSON.parse(json);
+    return true;
+  } catch {
+    return false;
+  }
 }
