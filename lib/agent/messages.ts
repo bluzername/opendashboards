@@ -91,16 +91,17 @@ const STOPPED = JSON.stringify({ error: { message: "Stopped by the user before i
  * Stopping a turn mid tool call leaves the call without a result, which the
  * model API rejects, so every later message would fail. Each gets an error
  * result instead: the model knows it didn't finish, and the chat carries on.
+ * Applied to the history a turn is sent with, and to a stopped turn before it's saved.
  */
-function answerStoppedCalls(messages: Message[]): Message[] {
+export function answerStoppedCalls(messages: ChatCompletionMessageParam[]): ChatCompletionMessageParam[] {
   const answered = new Set(messages.flatMap((m) => (m.role === "tool" ? [m.tool_call_id] : [])));
-  return messages.flatMap((m): Message[] => {
+  return messages.flatMap((m): ChatCompletionMessageParam[] => {
     if (m.role !== "assistant") return [m];
     const stopped = (m.tool_calls ?? []).filter((call) => !answered.has(call.id));
     if (stopped.length === 0) return [m];
     // Stopped while the model was still writing it, a call's arguments are cut-off JSON, which Gateway fails on.
     const calls = m.tool_calls?.map((call) =>
-      stopped.includes(call) && !parses(call.function.arguments)
+      stopped.includes(call) && call.type === "function" && !parses(call.function.arguments)
         ? { ...call, function: { ...call.function, arguments: "{}" } }
         : call,
     );
