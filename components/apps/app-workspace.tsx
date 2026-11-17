@@ -163,6 +163,9 @@ export function AppWorkspace({
   const startRename = useCallback(() => setRenaming(true), []);
   // Moving to another page, or to the new dashboard once it opens, hands back to the page.
   const pathname = usePathname();
+  // Leaving the page once the response is in means the app opened the new dashboard
+  // (or you moved on): it's done, so going back shows that page again.
+  if (creating?.response && creating.at !== pathname) setCreating(null);
   const showCreating = creating !== null && creating.at === pathname;
 
   return (
