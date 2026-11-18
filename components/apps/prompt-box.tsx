@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpIcon, Loader2Icon } from "lucide-react";
+import { ArrowUpIcon, Loader2Icon } from "@/components/shell/icons";
 import { useState, useTransition } from "react";
 
 import { createAppAction } from "@/app/(app)/apps/actions";
@@ -74,10 +74,7 @@ export function PromptBox({
           event.preventDefault();
           send();
         }}
-        className={cn(
-          "rounded-2xl border bg-background shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.12)] transition-shadow",
-          "focus-within:border-neutral-300 focus-within:shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.18)]",
-        )}
+        className="studio-input-surface rounded-[20px] border bg-background"
       >
         <label htmlFor="prompt" className="sr-only">
           Describe the dashboard you want
@@ -100,9 +97,9 @@ export function PromptBox({
           autoFocus={autoFocus}
           maxLength={4000}
           rows={3}
-          className="block max-h-72 min-h-28 w-full resize-none bg-transparent px-4 pt-4 text-[0.9375rem] leading-relaxed outline-none [field-sizing:content] placeholder:text-muted-foreground/70"
+          className="studio-prompt-input block max-h-72 min-h-24 w-full resize-none bg-transparent px-[18px] pt-4 text-[0.9375rem] leading-relaxed outline-none [field-sizing:content] placeholder:text-muted-foreground"
         />
-        <div className="flex items-center justify-between gap-3 px-3 pt-1 pb-3">
+        <div className="flex items-center justify-between gap-3 pt-1 pr-3 pb-3 pl-2.5">
           <DataSourcePicker
             connections={connections}
             selected={selected}
@@ -112,7 +109,7 @@ export function PromptBox({
           <Button
             type="submit"
             size="icon"
-            className="size-8 rounded-full"
+            className="size-8 rounded-full [&_svg]:size-4"
             disabled={!canSend}
             aria-label="Build it"
             title={hint ?? undefined}

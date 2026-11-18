@@ -8,7 +8,7 @@ import { secrets } from "@/config";
 import { track } from "@/lib/analytics";
 import { agentTools, getGateway, maxRounds, model, SYSTEM_PROMPT, type TurnContext } from "@/lib/agent";
 import { createAgUiTranslator, sse } from "@/lib/agent/ag-ui";
-import { answerStoppedCalls, chatBodySchema, VIEWING_DASHBOARD, type ChatBody } from "@/lib/agent/messages";
+import { answerStoppedCalls, chatBodySchema, DASHBOARD_INTENT, VIEWING_DASHBOARD, type ChatBody } from "@/lib/agent/messages";
 import { getAppService, getThreadService } from "@/lib/apps";
 import { getDashboardService } from "@/lib/dashboards";
 import { HttpError, readJson, route } from "@/lib/http";
@@ -50,6 +50,12 @@ export const POST = route<Ctx>(async (request, user, { params }) => {
     system.push({
       role: "system",
       content: `This app's data sources: ${list}. Use these unless the user asks for another of their connections.`,
+    });
+  }
+  if (context?.some((entry) => entry.description === DASHBOARD_INTENT && entry.value === "create")) {
+    system.push({
+      role: "system",
+      content: "The user chose New dashboard in this project. Create a separate dashboard for their request; do not edit an existing dashboard unless the user explicitly asks you to.",
     });
   }
   if (viewing) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { EllipsisIcon, Loader2Icon, PencilIcon, Trash2Icon } from "lucide-react";
+import { EllipsisIcon, Loader2Icon, PencilIcon, Trash2Icon } from "./icons";
 import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -48,18 +48,20 @@ export function DashboardMenu({
       <DropdownMenu>
         <DropdownMenuTrigger
           aria-label={`Actions for ${dashboard.title}`}
+          title="More actions"
           className={cn(
-            "flex size-5 shrink-0 items-center justify-center rounded text-foreground/50 hover:bg-black/[0.06] hover:text-foreground",
+            "flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-100 hover:bg-sidebar-accent hover:text-foreground",
             "focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none data-[state=open]:opacity-100",
             className,
           )}
         >
-          <EllipsisIcon className="size-3.5" aria-hidden />
+          <EllipsisIcon className="size-[18px]" strokeWidth={1.5} aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          align="start"
-          side="right"
-          className="min-w-44"
+          align="end"
+          side="bottom"
+          sideOffset={6}
+          className="studio-menu w-48"
           onCloseAutoFocus={(event) => {
             if (!renameOnClose.current) return;
             renameOnClose.current = false;
@@ -68,12 +70,12 @@ export function DashboardMenu({
           }}
         >
           <DropdownMenuItem onSelect={() => (renameOnClose.current = true)}>
-            <PencilIcon aria-hidden />
+            <PencilIcon strokeWidth={1.5} aria-hidden />
             Rename
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onSelect={() => setConfirming(true)}>
-            <Trash2Icon aria-hidden />
+            <Trash2Icon strokeWidth={1.5} aria-hidden />
             Delete dashboard
           </DropdownMenuItem>
         </DropdownMenuContent>

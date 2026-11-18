@@ -1,0 +1,412 @@
+diff --git a/packages/lang-core/src/index.ts b/packages/lang-core/src/index.ts
+index 92435c05f..6d6ddb4d4 100644
+--- a/packages/lang-core/src/index.ts
++++ b/packages/lang-core/src/index.ts
+@@ -95,3 +95,5 @@ export { ToolNotFoundError } from "./runtime/toolProvider";
+ // ── Validation ──
+ export { builtInValidators, parseRules, parseStructuredRules, validate } from "./utils/validation";
+ export type { ParsedRule, ValidatorFn } from "./utils/validation";
++
++export { dataSources } from "./parser/data-sources";
+diff --git a/packages/lang-core/src/parser/parser.ts b/packages/lang-core/src/parser/parser.ts
+index e010d1afd..334ad37d9 100644
+--- a/packages/lang-core/src/parser/parser.ts
++++ b/packages/lang-core/src/parser/parser.ts
+@@ -290,6 +290,8 @@ function containsComponent(node: ASTNode): boolean {
+   return found;
+ }
+ 
++export const parsedStatements = new WeakMap<ParseResult, { statements: ReadonlyMap<string, ASTNode>; cat: ParamMap | undefined }>();
++
+ function buildResult(
+   stmtMap: Map<string, Statement>,
+   typedStmts: Statement[],
+@@ -360,7 +362,7 @@ function buildResult(
+   // With no entry nothing is reachable; `no-root` alone describes the problem.
+   const orphaned = entry ? [...unreached] : [];
+ 
+-  return {
++  const result: ParseResult = {
+     root,
+     ...(rootExpression ? { rootExpression } : {}),
+     meta: {
+@@ -374,6 +376,8 @@ function buildResult(
+     queryStatements,
+     mutationStatements,
+   };
++  parsedStatements.set(result, { statements: syms, cat });
++  return result;
+ }
+ 
+ // ─────────────────────────────────────────────────────────────────────────────
+diff --git a/packages/lang-core/src/runtime/queryManager.ts b/packages/lang-core/src/runtime/queryManager.ts
+index a07f88a05..75b811adf 100644
+--- a/packages/lang-core/src/runtime/queryManager.ts
++++ b/packages/lang-core/src/runtime/queryManager.ts
+@@ -59,6 +59,7 @@ export interface QueryManager {
+   /** Run already evaluated queries. They do not wait for each other; see `evaluateStatements`. */
+   evaluateQueries(queryNodes: QueryNode[]): void;
+   getResult(statementId: string): unknown;
++  getCall(statementId: string): { toolName: string; args: unknown } | null;
+   isLoading(statementId: string): boolean;
+   isAnyLoading(): boolean;
+   invalidate(statementIds?: string[]): void;
+@@ -472,6 +473,11 @@ export function createQueryManager(toolProvider: ToolProvider | null): QueryMana
+     return data !== undefined ? data : q.defaults;
+   }
+ 
++  function getCall(statementId: string) {
++    const q = queries.get(statementId);
++    return q ? { toolName: q.toolName, args: q.args } : null;
++  }
++
+   function isLoading(statementId: string): boolean {
+     return isPending(statementId);
+   }
+@@ -645,6 +651,7 @@ export function createQueryManager(toolProvider: ToolProvider | null): QueryMana
+     evaluateStatements,
+     evaluateQueries,
+     getResult,
++    getCall,
+     isLoading,
+     isAnyLoading,
+     invalidate,
+diff --git a/packages/react-lang/src/Renderer.tsx b/packages/react-lang/src/Renderer.tsx
+index 3533b0409..724ab900d 100644
+--- a/packages/react-lang/src/Renderer.tsx
++++ b/packages/react-lang/src/Renderer.tsx
+@@ -18,7 +18,7 @@ import React, {
+   useRef,
+ } from "react";
+ import { Button, Spinner, View, type ButtonProps, type ViewProps } from "./components";
+-import { OpenUIContext, useOpenUI, useRenderNode } from "./context";
++import { OpenUIContext, ParseResultContext, useOpenUI, useRenderNode } from "./context";
+ import { useOpenUIState } from "./hooks/useOpenUIState";
+ import type { ComponentRenderer, Library } from "./library";
+ 
+@@ -325,7 +325,7 @@ function RendererRoot<L extends Library = Library>({
+ 
+   return (
+     <OpenUIContext.Provider value={contextValue}>
+-      <RendererContext.Provider value={value}>{children}</RendererContext.Provider>
++      <ParseResultContext.Provider value={parseResult}><RendererContext.Provider value={value}>{children}</RendererContext.Provider></ParseResultContext.Provider>
+     </OpenUIContext.Provider>
+   );
+ }
+diff --git a/packages/react-lang/src/context.ts b/packages/react-lang/src/context.ts
+index e30b4adda..10cc6b853 100644
+--- a/packages/react-lang/src/context.ts
++++ b/packages/react-lang/src/context.ts
+@@ -1,4 +1,4 @@
+-import type { ActionPlan, EvaluationContext, OpenUIError, Store } from "@openuidev/lang-core";
++import type { ActionPlan, EvaluationContext, OpenUIError, ParseResult, QueryManager, Store } from "@openuidev/lang-core";
+ import type { ReactNode } from "react";
+ import { createContext, useContext, useEffect } from "react";
+ import type { Library } from "./library";
+@@ -60,8 +60,11 @@ export interface OpenUIContextValue {
+ 
+   /** Report a structured error (used internally by error boundary). */
+   reportError?: (error: OpenUIError) => void;
++  queryManager: QueryManager;
+ }
+ 
++export const ParseResultContext = createContext<ParseResult | null>(null);
++
+ export const OpenUIContext = createContext<OpenUIContextValue | null>(null);
+ 
+ /**
+diff --git a/packages/react-lang/src/exports.ts b/packages/react-lang/src/exports.ts
+index 585a2d54f..702839163 100644
+--- a/packages/react-lang/src/exports.ts
++++ b/packages/react-lang/src/exports.ts
+@@ -108,3 +108,5 @@ export type {
+   RendererPreviewState,
+   WithPreviewRendererProps,
+ } from "./WithPreviewRenderer";
++
++export { useDataSources } from "./hooks/useDataSources";
+diff --git a/packages/react-lang/src/hooks/useOpenUIState.ts b/packages/react-lang/src/hooks/useOpenUIState.ts
+index 7a66f8912..bed56b7b2 100644
+--- a/packages/react-lang/src/hooks/useOpenUIState.ts
++++ b/packages/react-lang/src/hooks/useOpenUIState.ts
+@@ -487,12 +487,14 @@ export function useOpenUIState(
+       evaluationContext,
+       reportError,
+       isQueryLoading,
++      queryManager,
+     }),
+     [
+       library,
+       renderDeep,
+       blocked,
+       isQueryLoading,
++      queryManager,
+       triggerAction,
+       getFieldValue,
+       setFieldValue,
+diff --git a/packages/lang-core/src/parser/data-sources.ts b/packages/lang-core/src/parser/data-sources.ts
+new file mode 100644
+index 000000000..fd0c60bbc
+--- /dev/null
++++ b/packages/lang-core/src/parser/data-sources.ts
+@@ -0,0 +1,128 @@
++import { walkAST, type ASTNode } from "./ast";
++import { getCallDefs, RESERVED_CALLS } from "./builtins";
++import { parsedStatements } from "./parser";
++import type { ParseResult } from "./types";
++
++/** Where a value comes from. */
++interface Sources {
++  /** Query statements it reads, directly or through other statements. */
++  queries: string[];
++  /** Statements between it and those queries, e.g. `latest` in `latest = @Last(weekly.rows)`. */
++  via: string[];
++  /** `$variables` it, or a statement it reads, uses. */
++  state: string[];
++}
++
++/**
++ * Find the queries a statement's value is read from, for a "where did this come from" view.
++ * For a component, `props` gives the same for each prop; one with no queries and no state is
++ * written in the program (or reads a Mutation result). Inline child components count toward
++ * the statement. A named one does not (ask for it by its name), nor does a Mutation or an
++ * action. A query counts what its tool name and arguments read. Null when `result` is not one
++ * the parser returned, or has no such statement.
++ */
++export function dataSources(
++  result: ParseResult,
++  statementId: string,
++): (Sources & { props?: Record<string, Sources> }) | null {
++  const parsed = parsedStatements.get(result);
++  const own = parsed?.statements.get(statementId);
++  if (!parsed || !own) return null;
++  const { statements } = parsed;
++  const calls = getCallDefs(parsed.cat);
++
++  const isComponent = (node: ASTNode) =>
++    node.k === "Comp" &&
++    !node.fn &&
++    !calls.has(node.name) &&
++    !Object.hasOwn(RESERVED_CALLS, node.name);
++  const isAction = (node: ASTNode) =>
++    node.k === "Comp" && (node.name === "Action" || calls.get(node.name)?.kind === "action");
++
++  const collect = (from: ASTNode): Sources => {
++    const queries = new Set<string>();
++    const via = new Set<string>();
++    const state = new Set<string>();
++    // Whether a statement leads to a query; set to false first so a cycle stops.
++    const reaches = new Map<string, boolean>([[statementId, false]]);
++
++    const follow = (name: string): boolean => {
++      const known = reaches.get(name);
++      if (known !== undefined) return known;
++      reaches.set(name, false);
++      const target = statements.get(name);
++      let found = false;
++      if (target?.k === "Comp" && target.name === RESERVED_CALLS.Query) {
++        queries.add(name);
++        target.args.slice(0, 2).forEach((arg) => walk(arg, new Set()));
++        found = true;
++      } else if (target && !(target.k === "Comp" && target.name === RESERVED_CALLS.Mutation)) {
++        let holdsComponent = false;
++        walkAST(target, (node) => {
++          if (isComponent(node)) holdsComponent = true;
++        });
++        if (!holdsComponent) found = walk(target, new Set());
++        if (found) via.add(name);
++      }
++      reaches.set(name, found);
++      return found;
++    };
++
++    // `scope` holds names an `@Each` binds, which shadow statements of the same name.
++    const walk = (start: ASTNode, scope: ReadonlySet<string>): boolean => {
++      let found = false;
++      const skipped = new Set<ASTNode>();
++      const skip = (node: ASTNode) => walkAST(node, (n) => void skipped.add(n));
++      walkAST(start, (node) => {
++        if (skipped.has(node)) return;
++        if (isAction(node)) return skip(node);
++        const def = node.k === "Comp" ? calls.get(node.name) : undefined;
++        if (node.k === "Comp" && def?.kind === "function" && def.lazy && node.args.length >= 3) {
++          const bound = node.args[1];
++          const name = bound.k === "Ref" ? bound.n : bound.k === "Str" ? bound.v : undefined;
++          const inner = name ? new Set([...scope, name]) : scope;
++          node.args.forEach((arg, i) => {
++            if (i !== 1 && walk(arg, inner)) found = true;
++          });
++          return skip(node);
++        }
++        if (node.k === "StateRef" && Object.hasOwn(result.stateDeclarations, node.n)) {
++          state.add(node.n);
++        }
++        if (node.k === "Ref" && !scope.has(node.n) && follow(node.n)) found = true;
++      });
++      return found;
++    };
++
++    walk(from, new Set());
++    return { queries: [...queries], via: [...via], state: [...state] };
++  };
++
++  try {
++    // `card = other` renders `other`'s component under the name `card`.
++    let start = own;
++    for (const seen = new Set([statementId]); start.k === "Ref" && !seen.has(start.n);) {
++      seen.add(start.n);
++      start = statements.get(start.n) ?? start;
++    }
++    if (start.k !== "Comp" || !isComponent(start)) return collect(own);
++
++    // Positional arguments map to props in the library's order.
++    const args = start.args;
++    const names = parsed.cat?.get(start.name)?.params.map((p) => p.name) ?? [];
++    const props: Record<string, Sources> = {};
++    const all = { queries: new Set<string>(), via: new Set<string>(), state: new Set<string>() };
++    names.forEach((name, i) => {
++      if (i >= args.length) return;
++      props[name] = collect(args[i]);
++      for (const key of ["queries", "via", "state"] as const) {
++        props[name][key].forEach((n) => all[key].add(n));
++      }
++    });
++    return { queries: [...all.queries], via: [...all.via], state: [...all.state], props };
++  } catch (error) {
++    // A chain of statements too long to walk.
++    if (error instanceof RangeError) return null;
++    throw error;
++  }
++}
+diff --git a/packages/react-lang/src/hooks/useDataSources.test.tsx b/packages/react-lang/src/hooks/useDataSources.test.tsx
+new file mode 100644
+index 000000000..6976a1e11
+--- /dev/null
++++ b/packages/react-lang/src/hooks/useDataSources.test.tsx
+@@ -0,0 +1,61 @@
++// @vitest-environment jsdom
++import { act, createElement } from "react";
++import { createRoot } from "react-dom/client";
++import { describe, expect, it } from "vitest";
++import { z } from "zod/v4";
++import { createLibrary, defineComponent } from "../library";
++import { Renderer } from "../Renderer";
++import { useDataSources } from "./useDataSources";
++
++Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
++
++describe("useDataSources", () => {
++  it("updates when the source changes without changing the rendered props", async () => {
++    const latest: { sources: ReturnType<typeof useDataSources> } = { sources: null };
++    const Text = defineComponent({
++      name: "Text",
++      description: "Shows a value",
++      props: z.object({ value: z.any() }),
++      component: ({ props, statementId }) => {
++        latest.sources = useDataSources(statementId);
++        return createElement("span", null, String(props.value));
++      },
++    });
++    const library = createLibrary({ root: "Text", components: [Text] });
++    const node = document.createElement("div");
++    const root = createRoot(node);
++    const render = async (value: string) => {
++      await act(async () => {
++        root.render(
++          createElement(Renderer, {
++            library,
++            response: `$n = 3\nroot = Text(${value})`,
++            publishObservability: false,
++          }),
++        );
++      });
++    };
++
++    try {
++      await render("$n");
++      expect(node.textContent).toBe("3");
++      expect(latest.sources).toEqual({
++        queries: [],
++        via: [],
++        state: { $n: 3 },
++        props: { value: { queries: [], via: [], state: { $n: 3 } } },
++      });
++
++      await render("3");
++      expect(node.textContent).toBe("3");
++      expect(latest.sources).toEqual({
++        queries: [],
++        via: [],
++        state: {},
++        props: { value: { queries: [], via: [], state: {} } },
++      });
++    } finally {
++      await act(async () => root.unmount());
++    }
++  });
++});
+diff --git a/packages/react-lang/src/hooks/useDataSources.ts b/packages/react-lang/src/hooks/useDataSources.ts
+new file mode 100644
+index 000000000..84cd61ee1
+--- /dev/null
++++ b/packages/react-lang/src/hooks/useDataSources.ts
+@@ -0,0 +1,59 @@
++import { dataSources } from "@openuidev/lang-core";
++import { useContext, useMemo } from "react";
++import { ParseResultContext, useOpenUI } from "../context";
++
++/** A query a component reads: the call it last ran with, whether it is loading, and its result. */
++interface DataSourceQuery {
++  statementId: string;
++  toolName: string | undefined;
++  args: unknown;
++  loading: boolean;
++  data: unknown;
++}
++
++interface Sources<Q> {
++  queries: Q[];
++  /** Statements between the component and its queries, e.g. `latest = @Last(weekly.rows)`. */
++  via: string[];
++  /** The `$variables` it reads, with their current values. */
++  state: Record<string, unknown>;
++}
++
++/**
++ * Where a component's data comes from, for a "where did this number come from" view: its
++ * queries, the statements in between and the `$variables` it reads, also by prop. A prop with no
++ * queries and no state is written in the program. Pass the `statementId` the component gets;
++ * null for an inline component (no statement). It updates with the parsed program, query results and state.
++ */
++export function useDataSources(
++  statementId: string | undefined,
++): (Sources<DataSourceQuery> & { props?: Record<string, Sources<string>> }) | null {
++  const { queryManager, evaluationContext } = useOpenUI();
++  const result = useContext(ParseResultContext);
++  const found = useMemo(
++    () => (result && statementId ? dataSources(result, statementId) : null),
++    [result, statementId],
++  );
++  if (!found) return null;
++  const values = (names: string[]) =>
++    Object.fromEntries(names.map((name) => [name, evaluationContext.getState(name)]));
++  return {
++    queries: found.queries.map((id) => {
++      const call = queryManager.getCall(id);
++      return {
++        statementId: id,
++        toolName: call?.toolName,
++        args: call?.args,
++        loading: queryManager.isLoading(id),
++        data: queryManager.getResult(id),
++      };
++    }),
++    via: found.via,
++    state: values(found.state),
++    props:
++      found.props &&
++      Object.fromEntries(
++        Object.entries(found.props).map(([name, s]) => [name, { ...s, state: values(s.state) }]),
++      ),
++  };
++}

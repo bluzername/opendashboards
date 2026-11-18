@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { AddAppConnection } from "@/components/apps/add-app-connection";
-import { AppMenu } from "@/components/apps/app-menu";
 import { AppWorkspace } from "@/components/apps/app-workspace";
 import { BuildChat } from "@/components/apps/build-chat";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,18 +49,15 @@ async function AppView({ params, children }: { params: Params; children: React.R
       key={app.id}
       appId={app.id}
       name={app.name}
-      badges={
-        <>
-          <ConnectionBadges app={app} />
-          <AddAppConnection
-            appId={app.id}
-            connections={connections
-              .filter((connection) => !inApp.has(connection.id))
-              .map(({ id, name, shortSource, tile }) => ({ id, name, source: shortSource, tile }))}
-          />
-        </>
+      badges={<ConnectionBadges app={app} />}
+      addSource={
+        <AddAppConnection
+          appId={app.id}
+          connections={connections
+            .filter((connection) => !inApp.has(connection.id))
+            .map(({ id, name, shortSource, tile }) => ({ id, name, source: shortSource, tile }))}
+        />
       }
-      menu={<AppMenu app={{ id: app.id, name: app.name, dashboardCount: app.dashboards.length }} />}
       builder={
         <BuildChat
           appId={app.id}
@@ -80,7 +76,7 @@ function ConnectionBadges({ app }: { app: AppDetail }) {
   return app.connections.map((connection) => (
     <span
       key={connection.id}
-      className="inline-flex shrink-0 items-center gap-1 rounded-md bg-neutral-100 px-1.5 py-0.5 text-[0.6875rem] text-neutral-600"
+      className="inline-flex shrink-0 items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[0.6875rem] text-muted-foreground"
     >
       <DatabaseIcon className="size-3" aria-hidden />
       {connection.name}

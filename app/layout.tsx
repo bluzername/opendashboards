@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist_Mono, Inter } from "next/font/google";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="h-full">
         <TooltipProvider>{children}</TooltipProvider>
         <Toaster theme="light" position="bottom-right" />
+        {process.env.NODE_ENV === "development" && <Script src="https://mcp.figma.com/mcp/html-to-design/capture.js" strategy="afterInteractive" />}
       </body>
     </html>
   );

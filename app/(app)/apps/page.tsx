@@ -1,9 +1,10 @@
-import { DatabaseIcon, LayoutDashboardIcon } from "lucide-react";
+import { DatabaseIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
 import { PromptBox } from "@/components/apps/prompt-box";
+import { FolderGlyph } from "@/components/apps/studio-controls";
 import { Onboarding } from "@/components/onboarding/onboarding";
 import { SectionLabel } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,7 +23,7 @@ export default function AppsPage() {
       {/* A soft glow behind the hero, like a build-anything home page. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-[28rem] bg-[radial-gradient(60%_60%_at_50%_0%,oklch(0.95_0.03_265)_0%,transparent_70%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[28rem] bg-background"
       />
       <Suspense fallback={<HomeSkeleton />}>
         <Home />
@@ -68,7 +69,7 @@ async function Home() {
   return (
     <>
       <div className="relative mx-auto w-full max-w-3xl px-6 pt-20 sm:pt-28">
-        <h1 className="text-center text-3xl font-bold tracking-tight sm:text-[2.5rem] sm:leading-tight">
+        <h1 className="text-center text-2xl font-semibold tracking-tight sm:text-3xl">
           What do you want to build?
         </h1>
         <p className="mx-auto mt-3 max-w-md text-center text-[0.9375rem] text-muted-foreground">
@@ -104,7 +105,7 @@ function AppCard({ app, now }: { app: AppSummary; now: Date }) {
     >
       <div className="flex items-start gap-3">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
-          <LayoutDashboardIcon className="size-4" aria-hidden />
+          <FolderGlyph className="size-4" />
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{app.name}</p>

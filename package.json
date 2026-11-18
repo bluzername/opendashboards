@@ -20,6 +20,8 @@
   "dependencies": {
     "@ag-ui/core": "0.0.53",
     "@aws-sdk/client-kms": "^3.1164.0",
+    "@hugeicons/core-free-icons": "4.4.0",
+    "@hugeicons/react": "1.1.10",
     "@modelcontextprotocol/sdk": "1.32.2",
     "@openuidev/dashboard-library": "1.0.1",
     "@openuidev/lang-core": "1.1.0",
@@ -68,5 +70,11 @@
     "typescript": "^5",
     "vitest": "^5.1.0"
   },
-  "packageManager": "pnpm@9.15.4"
+  "packageManager": "pnpm@9.15.4",
+  "pnpm": {
+    "overrides": {
+      "@openuidev/lang-core": "file:vendor/openuidev-lang-core-1.1.1.tgz",
+      "@openuidev/react-lang": "file:vendor/openuidev-react-lang-1.1.1.tgz"
+    }
+  }
 }

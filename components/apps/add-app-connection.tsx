@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2Icon, PlusIcon } from "lucide-react";
+import { Loader2Icon, PlusIcon } from "@/components/shell/icons";
 import Link from "next/link";
 import { useTransition } from "react";
 import { toast } from "sonner";
@@ -15,12 +15,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export type AddableConnection = { id: string; name: string; source: string; tile: string };
 
 /**
- * The "+" after an app's data source badges: adds another of the user's
- * connections to the app, or goes to Data Connections to connect a new one.
+ * The header's "+" beside Sources: adds another of the user's connections to
+ * the app, or goes to Data Connections to connect a new one.
  */
 export function AddAppConnection({ appId, connections }: { appId: string; connections: AddableConnection[] }) {
   const [pending, startTransition] = useTransition();
@@ -35,15 +36,19 @@ export function AddAppConnection({ appId, connections }: { appId: string; connec
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        disabled={pending}
-        aria-label="Add a data source to this app"
-        className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.6875rem] text-neutral-500 transition-colors outline-none hover:bg-neutral-100 hover:text-neutral-700 focus-visible:ring-2 focus-visible:ring-ring/50"
-      >
-        {pending ? <Loader2Icon className="size-3 animate-spin" aria-hidden /> : <PlusIcon className="size-3" aria-hidden />}
-        Add data source
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64">
+      <Tooltip delayDuration={450}>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger
+            disabled={pending}
+            aria-label="Add data source"
+            className="studio-icon-button inline-flex shrink-0 items-center justify-center outline-none"
+          >
+            {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : <PlusIcon aria-hidden />}
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent sideOffset={6} className="studio-tooltip">Add source</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="end" className="studio-menu w-64">
         {connections.length > 0 && (
           <>
             <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Add to this app</DropdownMenuLabel>

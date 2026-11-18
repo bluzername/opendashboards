@@ -1,31 +1,22 @@
 "use client";
 
-import { PanelRightOpenIcon, SparklesIcon } from "lucide-react";
-
+import { LayoutDashboardIcon, LoaderCircleIcon } from "@/components/shell/icons";
 import { Button } from "@/components/ui/button";
+import { ChatStateIcon } from "./studio-controls";
+import { WorkspaceHeader, useBuildPanel } from "./app-workspace";
 
-import { useBuildPanel } from "./app-workspace";
-
-/** An app with no dashboards yet. */
-export function NoDashboards({ hasPendingPrompt }: { hasPendingPrompt: boolean }) {
-  const buildPanel = useBuildPanel();
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-2 bg-neutral-50/60 p-8 text-center">
-      <div className="mb-2 flex size-11 items-center justify-center rounded-xl border bg-background">
-        <SparklesIcon className="size-5 text-muted-foreground" aria-hidden />
+/** Build owns the input. The canvas explains where the result will appear. */
+export function NoDashboards({ hasPendingPrompt }: { hasPendingPrompt: boolean; newDashboard?: boolean }) {
+  const build = useBuildPanel();
+  return <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-shell-flip>
+    <WorkspaceHeader />
+    <div className="studio-canvas-empty">
+      <div className="studio-empty-content">
+        {hasPendingPrompt ? <LoaderCircleIcon className="studio-empty-symbol animate-spin" aria-hidden /> : <LayoutDashboardIcon className="studio-empty-symbol" aria-hidden />}
+        <h1>{hasPendingPrompt ? "Bringing your data into view" : "Your dashboard starts here"}</h1>
+        <p>{hasPendingPrompt ? "Exploring your data and putting the first view together." : "Describe what you want to track in the chat. Your metrics and charts will take shape here."}</p>
+        {!hasPendingPrompt && <Button variant="ghost" size="sm" className="studio-empty-action" onClick={() => build.compose()}><ChatStateIcon open={false} />{build.open ? "Describe your dashboard" : "Open chat"}</Button>}
       </div>
-      <p className="text-sm font-semibold">Build your first dashboard</p>
-      <p className="max-w-sm text-sm text-muted-foreground">
-        {hasPendingPrompt
-          ? "OpenDashboards is working on your prompt in the Build panel. The dashboards it builds show up here, and you can keep refining them."
-          : "Describe what you want to see in the Build panel. Dashboards show up here, and you can keep refining them by asking."}
-      </p>
-      {!buildPanel.open && (
-        <Button variant="outline" size="sm" className="mt-3" onClick={() => buildPanel.setOpen(true)}>
-          <PanelRightOpenIcon aria-hidden />
-          Open Build panel
-        </Button>
-      )}
     </div>
-  );
+  </div>;
 }

@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { track } from "@/lib/analytics";
 import { getDashboardService, getDashboards } from "@/lib/dashboards";
+import { recordScriptInputs, type ScriptCall } from "@/lib/dashboards/script-inputs";
+import { toolsFor } from "@/lib/tools";
 import { HttpError, readJson, route } from "@/lib/http";
 import { addLogContext, logError } from "@/lib/log";
 
@@ -26,12 +28,18 @@ export const POST = route(async (request, user) => {
   if (!dashboard) throw new HttpError(404, "Dashboard not found");
   addLogContext({ app: dashboard.appId, dashboard: parsed.data.id });
 
+  // A name that isn't one of our tools is a script OpenUI Cloud generated for this
+  // dashboard. Note the data calls it makes, so Sources can say what it reads.
+  const isScript = !toolsFor("dashboard").some((tool) => tool.name === parsed.data.name);
+  const trace: ScriptCall[] = [];
+
   try {
     const result = await getDashboards().interpreter.execute(
       parsed.data,
-      { userId: user.id, appId: dashboard.appId },
+      { userId: user.id, appId: dashboard.appId, ...(isScript && { trace }) },
       { signal: request.signal },
     );
+    if (isScript) recordScriptInputs(parsed.data.id, parsed.data.name, trace);
     return Response.json({ result });
   } catch (error) {
     if (error instanceof ToolExecutionError) {

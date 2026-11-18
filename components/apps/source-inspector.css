@@ -1,0 +1,353 @@
+.source-workspace { display:flex; min-width:0; min-height:0; flex:1; position:relative; container-type:inline-size; }
+.source-canvas { display:flex; flex-direction:column; min-width:0; flex:1; }
+.source-inspectable { display:contents; }
+/*
+ * Inspecting (Sources open): every traceable value advertises itself.
+ * - Numbers (KPI values, numeric table cells) get a dotted underline. Tables are not
+ *   framed: their row rules bleed to the card edge, so any frame would be crossed.
+ * - Charts get a dotted frame 4px outside with a 2px corner, so neighbours 12px apart
+ *   (a chart stacked over its table) never overlap and axes and legends stay clear.
+ * The selected one turns solid; hover darkens the dots.
+ */
+.source-workspace[data-inspecting] .source-inspectable > * { cursor:pointer; }
+.source-workspace[data-inspecting] :is(.openui-dashboard-kpi-value, tbody .openui-dashboard-num) { text-decoration-skip-ink:none; text-decoration:underline dotted color-mix(in srgb, var(--foreground) 30%, transparent); text-decoration-thickness:1.5px; text-underline-offset:5px; }
+.source-workspace[data-inspecting] .openui-dashboard-kpi-value { text-decoration-thickness:2px; text-underline-offset:7px; }
+.source-workspace[data-inspecting] .source-inspectable > :first-child:hover :is(.openui-dashboard-kpi-value, tbody .openui-dashboard-num) { text-decoration-color:color-mix(in srgb, var(--foreground) 60%, transparent); }
+.source-workspace[data-inspecting] .source-inspectable:not(:has(> .openui-dashboard-kpi, .openui-dashboard-table)) > :first-child { outline:1.5px dotted color-mix(in srgb, var(--foreground) 26%, transparent); outline-offset:4px; border-radius:2px; }
+.source-workspace[data-inspecting] .source-inspectable:not(:has(> .openui-dashboard-kpi, .openui-dashboard-table)) > :first-child:hover { outline-color:color-mix(in srgb, var(--foreground) 55%, transparent); }
+.source-workspace .source-inspectable[data-source-selected=true]:not(:has(> .openui-dashboard-kpi, .openui-dashboard-table)) > :first-child { outline:1.5px solid color-mix(in srgb, var(--foreground) 55%, transparent); outline-offset:4px; border-radius:2px; }
+.source-workspace .source-inspectable[data-source-selected=true] :is(.openui-dashboard-kpi-value, tbody .openui-dashboard-num) { text-decoration-skip-ink:none; text-decoration:underline solid color-mix(in srgb, var(--foreground) 70%, transparent); text-decoration-thickness:1.5px; text-underline-offset:5px; }
+.source-workspace .source-inspectable[data-source-selected=true] .openui-dashboard-kpi-value { text-decoration-thickness:2px; text-underline-offset:7px; }
+/* Same shape and colour as the app's tooltips, but it follows the pointer. */
+.source-hover-tip { position:fixed; z-index:60; pointer-events:none; translate:-50% calc(-100% - 14px); padding:6px 12px; border-radius:var(--radius-md); background:var(--foreground); color:var(--background); font-size:12px; line-height:16px; white-space:nowrap; }
+.source-selection { position:fixed; z-index:50; display:flex; align-items:center; gap:calc(var(--spacing)*2); max-width:235px; background:var(--popover); color:var(--popover-foreground); border:1px solid var(--border); border-radius:var(--radius-lg); padding:calc(var(--spacing)) calc(var(--spacing)*1.5) calc(var(--spacing)) calc(var(--spacing)*3); box-shadow:var(--shadow-md); font-size:var(--text-xs); }
+.source-selection > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.live-source-panel { width:320px; flex-shrink:0; min-height:0; display:flex; flex-direction:column; background:var(--background); border-left:1px solid var(--border); z-index:20; }
+.live-source-panel > header { display:flex; align-items:center; gap:calc(var(--spacing)*2); height:calc(var(--spacing)*12); flex-shrink:0; padding:0 calc(var(--spacing)*3); border-bottom:1px solid var(--border); font-size:var(--text-sm); font-weight:500; }
+.live-source-panel > header button { color:var(--muted-foreground); }
+.live-source-body { overflow:auto; padding:calc(var(--spacing)*5); flex:1; min-height:0; }
+.live-source-body h2 { font-size:var(--text-base); font-weight:600; overflow-wrap:anywhere; }
+.source-help { color:var(--muted-foreground); font-size:var(--text-xs); line-height:1.65; margin:calc(var(--spacing)*2) 0 calc(var(--spacing)*5); }
+.live-source-body > input { width:100%; border:1px solid var(--input); border-radius:var(--radius-md); background:var(--background); padding:calc(var(--spacing)*2) calc(var(--spacing)*2.5); margin:0 0 calc(var(--spacing)*3); font-size:var(--text-sm); }
+.live-source-row { display:flex; width:100%; align-items:center; gap:calc(var(--spacing)*2.5); text-align:left; font-size:var(--text-sm); padding:calc(var(--spacing)*3) calc(var(--spacing)*2); border-radius:var(--radius-lg); }
+.live-source-row svg { width:16px; height:16px; color:var(--muted-foreground); flex-shrink:0; stroke-width:1.6; }
+.live-source-row > span { flex:1; min-width:0; overflow-wrap:anywhere; }
+.live-source-row small { display:block; color:var(--muted-foreground); font-size:var(--text-xs); margin-top:calc(var(--spacing)); }
+.source-selected-value { font-size:var(--text-2xl); font-weight:500; line-height:1.3; margin:calc(var(--spacing)*4) 0; overflow-wrap:anywhere; }
+.source-accordion { border-top:1px solid var(--border); padding:calc(var(--spacing)*4) 0; display:flex; justify-content:space-between; width:100%; font-size:var(--text-sm); font-weight:500; }
+.source-accordion svg { width:14px; height:14px; color:var(--muted-foreground); }
+.source-accordion[aria-expanded=true] svg { transform:rotate(90deg); }
+.source-caption { font-size:var(--text-xs); color:var(--muted-foreground); margin-bottom:calc(var(--spacing)*2); }
+.source-input { display:flex; align-items:center; gap:calc(var(--spacing)*2); width:100%; font-size:var(--text-xs); border:1px solid var(--border); padding:calc(var(--spacing)*2.5); border-radius:var(--radius-md); margin-bottom:calc(var(--spacing)*2); text-align:left; overflow-wrap:anywhere; }
+.source-input svg { width:14px; height:14px; flex-shrink:0; color:var(--muted-foreground); }
+.source-input span { flex:1; min-width:0; }
+.source-code { border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--sidebar); margin:calc(var(--spacing)*3) 0 calc(var(--spacing)*4); overflow:hidden; }
+.source-code > div { display:flex; justify-content:space-between; align-items:center; padding:calc(var(--spacing)*1.5) calc(var(--spacing)*2.5); font-size:var(--text-xs); color:var(--muted-foreground); border-bottom:1px solid var(--border); }
+.source-code button { padding:calc(var(--spacing)); border-radius:var(--radius-sm); }
+.source-code svg { width:14px; height:14px; }
+.source-code pre, .source-result pre { white-space:pre-wrap; overflow-wrap:anywhere; font-family:var(--font-mono); font-size:var(--text-xs); line-height:1.7; max-height:380px; overflow:auto; }
+.source-code pre { padding:calc(var(--spacing)*3); }
+.live-source-body details { font-size:var(--text-xs); margin:calc(var(--spacing)*4) 0; }
+.live-source-body summary { color:var(--muted-foreground); }
+.source-result-actions { display:flex; align-items:center; gap:calc(var(--spacing)); font-size:var(--text-xs); color:var(--muted-foreground); }
+.source-result-actions > span { flex:1; }
+.source-result { border:1px solid var(--border); border-radius:var(--radius-lg); padding:calc(var(--spacing)) calc(var(--spacing)*3); margin:calc(var(--spacing)*2) 0; font-size:var(--text-sm); overflow-wrap:anywhere; }
+.source-result > div { padding:calc(var(--spacing)*3) 0; border-bottom:1px solid var(--border); }
+.source-result > div:last-child { border:0; }
+.source-result dt { font-size:var(--text-xs); color:var(--muted-foreground); margin-bottom:calc(var(--spacing)*1.5); }
+.source-result dd { margin:0; }
+.source-result dd pre { margin:0; max-height:300px; }
+/* Preserve the dashboard library's direct-child flex rules across inspection wrappers. */
+.openui-dashboard-kpi-cell > .source-inspectable > *,
+.openui-dashboard-cell > .source-inspectable > * { flex:1 1 auto; min-width:0; }
+.openui-dashboard-cell > .source-inspectable > .openui-dashboard-card { min-height:var(--openui-dashboard-row-h,auto); }
+
+/* Inspector refinements: stable mounted panel, compact list and reversible disclosures. */
+.source-workspace { overflow:clip; }
+.live-source-slot { position:relative; width:0; flex:none; min-height:0; z-index:20; pointer-events:none; }
+.live-source-slot[data-open=true] { width:320px; pointer-events:auto; }
+.live-source-panel { position:absolute; inset:0 0 0 auto; width:320px; min-width:320px; height:100%; border-color:var(--studio-divider); background:var(--studio-build); transform:translateX(100%); opacity:0; visibility:hidden; }
+.live-source-slot[data-open=true] .live-source-panel { transform:translateX(0); opacity:1; visibility:visible; }
+.live-source-panel > header { height:48px; padding:0 10px 0 16px; gap:8px; font-size:14px; font-weight:500; border-color:var(--studio-divider); }
+.source-header-icon { width:16px; height:16px; color:var(--studio-icon); }
+.live-source-body { padding:16px 16px 24px; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:color-mix(in srgb,var(--foreground) 15%,transparent) transparent; }
+.live-source-body h2 { font-size:16px; line-height:24px; font-weight:600; letter-spacing:-0.015em; }
+/* The search stays pinned under the header while the list scrolls beneath it. */
+.source-search-bar { position:sticky; top:-16px; z-index:1; margin:-16px -16px 4px; padding:12px 16px 8px; background:var(--studio-build); }
+.source-search { display:flex; align-items:center; gap:8px; margin:0; padding:7px 10px; border:1px solid var(--studio-divider); border-radius:8px; background:var(--background); }
+.source-search svg { width:14px; height:14px; flex:none; color:var(--muted-foreground); }
+.source-search input { width:100%; min-width:0; outline:none; background:transparent; font-size:14px; line-height:22px; }
+.source-search input:focus-visible { outline:none; }
+.source-search:focus-within { border-color:color-mix(in srgb, var(--foreground) 24%, var(--background)); }
+/* One quiet line per source: name, then its kind in the margin. No per-row icons. */
+.source-list { display:flex; flex-direction:column; gap:1px; }
+.live-source-row { height:36px; padding:0 10px; gap:12px; border-radius:8px; font-size:14px; line-height:20px; }
+.live-source-row > .source-row-label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.live-source-row > .source-row-kind { flex:none; font-size:12px; color:var(--muted-foreground); }
+.live-source-row > .source-row-chevron { width:14px; height:14px; margin-left:-6px; color:var(--muted-foreground); opacity:0.7; }
+.live-source-row[data-active] { background:var(--studio-selected); }
+.live-source-row[data-active] > .source-row-kind { color:var(--foreground); font-variant-numeric:tabular-nums; }
+/* A source's detail: what it is, what it reads, what uses it, its query and data. */
+.source-detail-meta { margin:2px 0 0; }
+.source-section { margin-top:22px; }
+.source-section > .source-caption, .source-section-head > .source-caption { margin:0 0 6px; padding-left:10px; font-size:12px; line-height:16px; font-weight:500; color:var(--muted-foreground); }
+.source-section-head { display:flex; align-items:center; gap:2px; min-height:28px; margin-bottom:2px; }
+.source-section-head > .source-caption { flex:1; margin:0; }
+.source-section > .source-code { margin:0; }
+.source-section > .source-query-result { margin:4px 0 0; }
+.source-section > .source-help { margin:0; padding-left:10px; }
+.source-help { font-size:13px; line-height:21px; margin-top:6px; margin-bottom:20px; }
+.source-selected-value { font-size:26px; line-height:34px; letter-spacing:-0.035em; font-variant-numeric:tabular-nums; margin:12px 0 8px; }
+.source-accordion { padding:14px 0; font-size:14px; line-height:22px; align-items:center; border-color:var(--studio-divider); }
+.source-disclosure { display:grid; grid-template-rows:0fr; opacity:0; visibility:hidden; }
+.source-disclosure[data-open=true] { grid-template-rows:1fr; opacity:1; visibility:visible; }
+.source-disclosure-inner { min-height:0; overflow:hidden; }
+.source-code { border-color:var(--studio-divider); border-radius:10px; background:var(--background); }
+.source-code > div { height:36px; padding:4px 8px 4px 12px; border-color:var(--studio-divider); font-size:11px; }
+.source-code pre, .source-result pre { font-family:var(--font-geist-mono),monospace; font-size:12px; line-height:1.75; }
+.source-code .studio-icon-button svg { width:14px; height:14px; }
+.source-input { border-color:var(--studio-divider); border-radius:8px; }
+.source-caption { font-size:12px; }
+.source-result-actions { font-size:12px; }
+.source-result { border-color:var(--studio-divider); border-radius:10px; }
+.source-result > div { border-color:var(--studio-divider); }
+.source-result dt { font-size:11px; }
+.source-selection { gap:0; height:auto; border-radius:10px; border:1px solid transparent; padding:3px; box-shadow:var(--studio-overlay-shadow); font-size:13px; }
+.source-selection-action { height:28px; gap:6px; padding-inline:8px 10px; border-radius:7px; font-size:13px; font-weight:400; color:var(--foreground); }
+.source-selection-action svg { width:16px; height:16px; color:var(--studio-icon); }
+@media (hover:hover) {
+  .live-source-row:hover, .source-input:hover, .source-selection-action:hover { background:var(--studio-hover); }
+}
+@media (prefers-reduced-motion:no-preference) {
+  .live-source-panel { transition:transform 180ms var(--studio-ease),opacity 140ms,visibility 0s 180ms; }
+  .live-source-slot[data-open=true] .live-source-panel { transition:transform 180ms var(--studio-ease),opacity 140ms,visibility 0s; }
+  .source-disclosure { transition:grid-template-rows 180ms var(--studio-ease),opacity 120ms,visibility 0s 180ms; }
+  .source-disclosure[data-open=true] { transition:grid-template-rows 180ms var(--studio-ease),opacity 120ms,visibility 0s; }
+  .source-accordion svg { transition:transform 160ms var(--studio-ease); }
+  .source-selection { transition:opacity 140ms,translate 140ms var(--studio-ease); }
+  @starting-style { .source-selection { opacity:0; translate:0 3px; } }
+}
+@container (max-width:760px) {
+  .live-source-slot, .live-source-slot[data-open=true] { position:absolute; inset:0 0 0 auto; width:min(320px,100%); }
+  .live-source-panel { width:100%; min-width:0; box-shadow:var(--studio-overlay-shadow); }
+}
+@media (prefers-reduced-motion:reduce) {
+  .live-source-slot, .source-disclosure, .source-selection { transition:opacity 100ms; }
+}
+
+/* Query results retain the full returned data in a readable, compact presentation. */
+.source-query-result { margin:8px 0 16px; }
+.source-result-summary { display:flex; align-items:center; gap:6px; color:var(--muted-foreground); font-size:11px; line-height:18px; margin:0 0 10px; font-variant-numeric:tabular-nums; }
+.source-result-fields { border:1px solid var(--studio-divider,var(--border)); border-radius:10px; padding:0 12px; margin:8px 0 12px; overflow:hidden; }
+.source-result-fields > div { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:baseline; gap:12px; padding:11px 0; border-bottom:1px solid var(--studio-divider,var(--border)); }
+.source-result-fields > div:last-child { border-bottom:0; }
+.source-result-fields dt { color:var(--muted-foreground); font-size:14px; line-height:22px; overflow-wrap:anywhere; }
+.source-result-fields dd { margin:0; min-width:0; color:var(--foreground); text-align:right; font-size:14px; line-height:21px; overflow-wrap:anywhere; }
+.source-result-fields dd[data-numeric=true] { font-weight:500; font-variant-numeric:tabular-nums; }
+.source-result-fields dd:has(pre) { grid-column:1 / -1; text-align:left; }
+.source-result-fields pre, .source-result-table pre, .source-result-raw { margin:0; font-family:var(--font-geist-mono),monospace; font-size:11px; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; }
+.source-result-fields pre { max-height:240px; overflow:auto; overscroll-behavior:contain; }
+.source-result-null { color:var(--muted-foreground); font-size:12px; font-weight:400; }
+.source-result-table-scroll { max-width:100%; max-height:360px; overflow:auto; overscroll-behavior:contain; border:1px solid var(--studio-divider,var(--border)); border-radius:10px; scrollbar-width:thin; }
+.source-result-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; line-height:22px; font-variant-numeric:tabular-nums; }
+.source-result-table th, .source-result-table td { padding:9px 12px; text-align:left; vertical-align:top; border-bottom:1px solid var(--studio-divider,var(--border)); }
+.source-result-table th { position:sticky; top:0; z-index:1; background:var(--studio-build,var(--sidebar)); color:var(--muted-foreground); font-size:11px; font-weight:500; white-space:nowrap; }
+.source-result-table td { color:var(--foreground); white-space:nowrap; }
+.source-result-table td[data-numeric=true] { text-align:right; }
+.source-result-table td:has(pre) { min-width:160px; max-width:260px; white-space:normal; }
+.source-result-table tbody tr:last-child td { border-bottom:0; }
+.source-result-empty { padding:20px 12px; text-align:center; border:1px solid var(--studio-divider,var(--border)); border-radius:10px; font-size:12px; line-height:20px; color:var(--muted-foreground); }
+.source-result-note { margin:10px 0 0; color:var(--muted-foreground); font-size:11px; line-height:17px; }
+.source-result-metadata > summary { font-size:11px; }
+.source-result-raw { padding:12px; max-height:360px; overflow:auto; overscroll-behavior:contain; }
+
+/*
+ * Panel layout: one left edge. Title, meta, section labels, row text, code and data all
+ * start at the body's 16px inset; row hover fills reach 10px past it, as in the sidebar.
+ * Every section has the same head: a label, an optional note, then its actions.
+ */
+.live-source-body { padding:16px 16px 32px; }
+.live-source-body h2 { margin:0; font-size:16px; line-height:24px; font-weight:600; letter-spacing:-0.01em; }
+.live-source-body .source-detail-meta { margin:2px 0 0; padding:0; font-size:13px; line-height:20px; color:var(--muted-foreground); }
+.live-source-body .source-selected-value { margin:8px 0 0; }
+.source-list { margin-inline:-10px; }
+.source-section { margin-top:24px; }
+.source-section-head { display:flex; align-items:center; gap:0; min-height:28px; margin:0 -6px 4px 0; }
+.source-section .source-section-head > .source-caption { flex:1; margin:0; padding:0; font-size:12px; line-height:16px; font-weight:500; color:var(--muted-foreground); }
+.source-section-note { margin-right:6px; font-size:12px; line-height:16px; color:var(--muted-foreground); font-variant-numeric:tabular-nums; }
+.source-section > .source-help { margin:0; padding:0; font-size:13px; line-height:20px; }
+.source-code-block { margin:0; padding:10px 12px; border:1px solid var(--studio-divider); border-radius:8px; background:var(--background); font-family:var(--font-geist-mono),monospace; font-size:12px; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; max-height:320px; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; }
+.source-section > .source-query-result { margin:0; }
+.source-section .source-result-fields { margin:0; padding:0 12px; border-radius:8px; background:var(--background); }
+.source-section .source-result-fields > div { padding:9px 0; }
+.source-section .source-result-fields dt, .source-section .source-result-fields dd { font-size:13px; line-height:20px; }
+.source-section .source-result-table-scroll { border-radius:8px; background:var(--background); }
+.source-section .source-result-table { font-size:13px; line-height:20px; }
+.source-section > .source-result-raw { margin:0; padding:10px 12px; border:1px solid var(--studio-divider); border-radius:8px; background:var(--background); }
+
+/*
+ * Element first: what was clicked (kind, name, value, description), then where it comes
+ * from, then that source's query and data. Other uses sit last, collapsed.
+ */
+.live-source-body .source-eyebrow { margin:0 0 2px; font-size:12px; line-height:16px; font-weight:500; color:var(--muted-foreground); }
+.live-source-body .source-selected-value { margin:6px 0 0; font-size:28px; line-height:36px; font-weight:600; letter-spacing:-0.03em; font-variant-numeric:tabular-nums; }
+.live-source-body .source-selected-value + .source-detail-meta { margin-top:4px; }
+.live-source-row[data-two-line] { height:auto; min-height:52px; padding:8px 10px; align-items:center; }
+.live-source-row > .source-row-text { display:flex; flex:1; min-width:0; flex-direction:column; gap:2px; }
+.live-source-row > .source-row-text > .source-row-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.source-row-detail { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; line-height:16px; color:var(--muted-foreground); }
+.source-used { margin-top:28px; padding-top:12px; border-top:1px solid var(--studio-divider); }
+.source-disclosure-toggle { display:flex; width:calc(100% + 20px); height:32px; align-items:center; gap:6px; margin:0 -10px; padding:0 10px; border-radius:8px; font-size:12px; line-height:16px; font-weight:500; color:var(--muted-foreground); text-align:left; }
+.source-disclosure-toggle > svg { width:14px; height:14px; flex:none; margin-left:-2px; }
+.source-disclosure-toggle > span:first-of-type { flex:1; }
+.source-disclosure-toggle > .source-section-note { margin-right:0; }
+.source-disclosure-toggle[aria-expanded=true] > svg { transform:rotate(90deg); }
+.source-used .source-disclosure-inner > .source-list { padding-top:4px; }
+@media (hover:hover) { .source-disclosure-toggle:hover { background:var(--studio-hover); color:var(--foreground); } }
+@media (prefers-reduced-motion:no-preference) { .source-disclosure-toggle > svg { transition:transform 160ms var(--studio-ease); } }
+
+/*
+ * Detail, Claude-quiet: the source (title + one muted line), then what was picked, then
+ * equal collapsible rows divided by hairlines. Nothing is boxed except data and code.
+ */
+.live-source-body h2 { font-size:15px; line-height:22px; font-weight:600; letter-spacing:-0.005em; }
+.live-source-body .source-detail-meta { margin:2px 0 0; font-size:14px; line-height:20px; color:var(--muted-foreground); text-wrap:pretty; }
+.source-focus { margin:16px -10px 0; padding:8px 10px; border-radius:8px; }
+.source-focus-value { font-size:24px; line-height:32px; font-weight:600; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
+.source-focus-name { font-size:15px; line-height:22px; font-weight:500; }
+.source-focus-label { margin-top:2px; font-size:14px; line-height:20px; color:var(--muted-foreground); text-wrap:pretty; }
+.source-focus-hint { margin-top:2px; font-size:13px; line-height:18px; color:var(--muted-foreground); }
+.source-rows { margin-top:12px; border-top:1px solid var(--studio-divider); }
+.source-row-section { border-bottom:1px solid var(--studio-divider); }
+.source-row-toggle { display:flex; width:100%; height:44px; align-items:center; gap:8px; padding:0; text-align:left; font-size:14px; line-height:20px; color:var(--foreground); }
+.source-row-toggle > span:first-child { flex:1; }
+.source-row-toggle > svg { width:16px; height:16px; flex:none; color:var(--muted-foreground); }
+.source-row-toggle[aria-expanded=true] > svg { rotate:90deg; }
+.source-row-note { font-size:13px; line-height:18px; color:var(--muted-foreground); font-variant-numeric:tabular-nums; }
+.source-row-body { padding:0 0 16px; }
+.source-row-body > .source-list { margin-top:-4px; }
+.source-row-body > .source-help { margin:0; font-size:13px; line-height:20px; }
+.source-code-wrap { position:relative; }
+.source-code-wrap > .source-code-block { padding-right:40px; }
+.source-code-wrap > .source-code-copy { position:absolute; top:4px; right:4px; opacity:0; }
+.source-code-wrap:hover > .source-code-copy, .source-code-wrap:focus-within > .source-code-copy { opacity:1; }
+/* Data: compact rows in one hairline box, raw field names, numbers in tabular figures. */
+.source-row-body .source-result-table-scroll { max-height:320px; border:1px solid var(--studio-divider); border-radius:8px; background:var(--background); overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; }
+.source-row-body .source-result-table { width:max-content; min-width:100%; border-collapse:separate; border-spacing:0; font-size:13px; line-height:20px; font-variant-numeric:tabular-nums; }
+.source-row-body .source-result-table th, .source-row-body .source-result-table td { padding:5px 12px; text-align:left; white-space:nowrap; border-bottom:1px solid var(--studio-divider); }
+.source-row-body .source-result-table th { position:sticky; top:0; z-index:1; background:var(--background); color:var(--foreground); font-size:13px; font-weight:500; }
+.source-row-body .source-result-table td { color:var(--foreground); }
+.source-row-body .source-result-table td[data-numeric=true] { text-align:left; }
+.source-row-body .source-result-table tbody tr:last-child td { border-bottom:0; }
+.source-row-body .source-result-fields { margin:0; padding:0 12px; border:1px solid var(--studio-divider); border-radius:8px; background:var(--background); }
+.source-row-body .source-result-fields > div { padding:5px 0; gap:12px; border-color:var(--studio-divider); }
+.source-row-body .source-result-fields dt { font-size:13px; line-height:20px; color:var(--muted-foreground); }
+.source-row-body .source-result-fields dd { font-size:13px; line-height:20px; font-weight:400; font-variant-numeric:tabular-nums; }
+.source-row-body .source-result-fields dd[data-numeric=true] { font-weight:400; }
+.source-row-body code { font-family:var(--font-geist-mono),monospace; font-size:12px; }
+.source-result-foot { display:flex; align-items:center; margin:6px -6px 0 0; font-size:13px; line-height:18px; color:var(--muted-foreground); font-variant-numeric:tabular-nums; }
+.source-result-foot > span { flex:1; }
+@media (hover:hover) { .source-row-toggle:hover > svg { color:var(--foreground); } }
+@media (prefers-reduced-motion:no-preference) {
+  .source-row-toggle > svg { transition:rotate 150ms var(--studio-ease), color 150ms; }
+  .source-code-wrap > .source-code-copy { transition:opacity 150ms; }
+}
+
+/* On the dashboard: the picked figure or cell gets a small box, not an underline. */
+.source-workspace [data-source-cell] { outline:1.5px solid color-mix(in srgb, var(--foreground) 55%, transparent); outline-offset:3px; border-radius:4px; text-decoration:none !important; }
+.source-workspace .source-inspectable[data-source-selected=true] .openui-dashboard-kpi-value { text-decoration:none; }
+/*
+ * Switching elements: what changed arrives once and settles. The dashboard outline eases
+ * in from a little further out; the panel's value block fades from a faint tint. Both
+ * tints come from the foreground, so they hold in light and dark. Reduced motion: none.
+ */
+@keyframes source-settle { from { outline-color:color-mix(in srgb, var(--foreground) 85%, transparent); outline-offset:7px; } }
+@keyframes source-arrive { from { background-color:color-mix(in srgb, var(--foreground) 6%, transparent); } to { background-color:transparent; } }
+@media (prefers-reduced-motion:no-preference) {
+  .source-workspace [data-source-cell],
+  .source-workspace .source-inspectable[data-source-selected=true]:not(:has(> .openui-dashboard-kpi, .openui-dashboard-table)) > :first-child { animation:source-settle 420ms cubic-bezier(0.2, 0, 0, 1) both; }
+  .source-focus { animation:source-arrive 900ms cubic-bezier(0.2, 0, 0, 1) both; }
+}
+/* The disclosure clips to animate; widen its box so row hover fills keep their 10px bleed. */
+.source-row-section .source-disclosure-inner { margin-inline:-10px; padding-inline:10px; }
+
+/* Source marks: product logos (filled) and outline glyphs, 14px, in the muted text color. */
+.source-logo { width:14px; height:14px; flex:none; color:var(--muted-foreground); }
+svg.source-logo[fill=currentColor] { opacity:0.85; }
+.live-source-row > .source-row-mark { display:flex; align-items:center; }
+.source-row-toggle > .source-row-title { display:flex; flex:1; min-width:0; align-items:center; gap:8px; }
+.live-source-body .source-detail-meta > .source-logo { display:inline-block; margin-right:6px; vertical-align:-2px; }
+/* A chart's or table's heading is the element itself, sitting where the source title would. */
+.source-focus.source-focus-heading { margin-top:-8px; }
+/* The open source of a chart or table: who it is, then its data. */
+.source-identity { display:flex; align-items:center; margin:-4px -6px 8px 0; }
+.source-identity-text { display:flex; flex:1; min-width:0; flex-direction:column; padding:4px 0; text-align:left; }
+.source-identity-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; line-height:20px; font-weight:500; color:var(--foreground); }
+.source-identity-meta { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; line-height:18px; color:var(--muted-foreground); }
+.source-identity-inputs { margin:0 0 12px; }
+.source-row-caption { margin:0 0 2px; font-size:12px; line-height:16px; font-weight:500; color:var(--muted-foreground); }
+@media (hover:hover) { .source-identity-text:hover .source-identity-name { text-decoration:underline; text-decoration-color:color-mix(in srgb, var(--foreground) 30%, transparent); text-underline-offset:3px; } }
+
+/* A picked figure or table cell: a close box (2px out) that stays inside its table row. */
+.source-workspace [data-source-cell] { outline-offset:2px; border-radius:3px; }
+.source-workspace td[data-source-cell] { outline-offset:-2px; }
+@keyframes source-settle-tight { from { outline-color:color-mix(in srgb, var(--foreground) 85%, transparent); outline-offset:4px; } }
+@media (prefers-reduced-motion:no-preference) { .source-workspace [data-source-cell] { animation-name:source-settle-tight; } }
+/* A cell's text element fills its column; while picked, it hugs its text so the box does too. */
+.source-workspace td [data-source-cell] { width:fit-content; max-width:100%; }
+
+/* One layer per thing: a card that holds a chart or table never frames itself; what it holds does. */
+.source-workspace[data-inspecting] .source-inspectable:not([data-source-selected=true]):has(.source-inspectable) > :first-child,
+.source-workspace[data-inspecting] .source-inspectable:not([data-source-selected=true]):has(.source-inspectable) > :first-child:hover { outline-color:transparent; }
+/* Tables are picked whole: a frame like a chart's, and no per-number underline. */
+.source-workspace[data-inspecting] tbody .openui-dashboard-num,
+.source-workspace .source-inspectable[data-source-selected=true] tbody .openui-dashboard-num { text-decoration:none; }
+.source-workspace[data-inspecting] .source-inspectable:has(.openui-dashboard-table):not(:has(.source-inspectable)) > :first-child { outline:1.5px dotted color-mix(in srgb, var(--foreground) 26%, transparent); outline-offset:4px; border-radius:2px; }
+.source-workspace[data-inspecting] .source-inspectable:has(.openui-dashboard-table):not(:has(.source-inspectable)) > :first-child:hover { outline-color:color-mix(in srgb, var(--foreground) 55%, transparent); }
+.source-workspace .source-inspectable[data-source-selected=true]:has(.openui-dashboard-table):not(:has(.source-inspectable)) > :first-child { outline:1.5px solid color-mix(in srgb, var(--foreground) 55%, transparent); outline-offset:4px; border-radius:2px; }
+@media (prefers-reduced-motion:no-preference) {
+  .source-workspace .source-inspectable[data-source-selected=true]:has(.openui-dashboard-table):not(:has(.source-inspectable)) > :first-child { animation:source-settle 420ms cubic-bezier(0.2, 0, 0, 1) both; }
+}
+
+/* Source marks beside a row's label: small chips, overlapping when there are several. */
+.source-logo-stack { display:inline-flex; align-items:center; margin-left:2px; }
+.source-logo-chip { display:grid; width:20px; height:20px; place-items:center; border-radius:999px; background:var(--background); box-shadow:0 0 0 1px var(--studio-divider); }
+.source-logo-chip + .source-logo-chip { margin-left:-5px; }
+.source-logo-chip > .source-logo { width:12px; height:12px; }
+/* What a row holds sits 4px in from its label, so it reads as belonging to it. */
+.source-row-body { padding-left:4px; }
+.source-identity { margin-bottom:6px; }
+/*
+ * Tables frame their card, not their body: a table's row rules run to the card's edges, so
+ * a frame around the body gets crossed. The card's rounded edge carries the frame instead.
+ */
+.source-workspace[data-inspecting] .source-inspectable:has(.openui-dashboard-table):not(:has(.source-inspectable)) > :first-child,
+.source-workspace .source-inspectable[data-source-selected=true]:has(.openui-dashboard-table):not(:has(.source-inspectable)) > :first-child { outline:none; animation:none; }
+.source-workspace[data-inspecting] .openui-dashboard-card.openui-dashboard-card:has(.source-inspectable .openui-dashboard-table) { outline:1.5px dotted color-mix(in srgb, var(--foreground) 26%, transparent); outline-offset:3px; }
+.source-workspace[data-inspecting] .openui-dashboard-card.openui-dashboard-card:has(.source-inspectable .openui-dashboard-table):hover { outline-color:color-mix(in srgb, var(--foreground) 55%, transparent); }
+.source-workspace .openui-dashboard-card.openui-dashboard-card:has(.source-inspectable[data-source-selected=true] .openui-dashboard-table) { outline:1.5px solid color-mix(in srgb, var(--foreground) 55%, transparent); outline-offset:3px; }
+@media (prefers-reduced-motion:no-preference) {
+  .source-workspace .openui-dashboard-card.openui-dashboard-card:has(.source-inspectable[data-source-selected=true] .openui-dashboard-table) { animation:source-settle 420ms cubic-bezier(0.2, 0, 0, 1) both; }
+}
+
+/*
+ * Brand logos in color: each brand mixed 15% toward the text color, so a pale brand
+ * (ClickHouse yellow) darkens on light and a deep one (Postgres blue) lifts on dark.
+ * Near-black marks use the text color itself; non-brand glyphs stay muted.
+ */
+.source-logo[data-brand=color] { color:color-mix(in oklab, var(--brand) 85%, var(--foreground)); opacity:1; }
+.source-logo[data-brand=mono] { color:var(--foreground); opacity:0.85; }
+/* Beside a row's label: the marks themselves, side by side, no chips. */
+.source-logo-stack { display:inline-flex; align-items:center; gap:6px; margin-left:2px; }
+.source-logo-stack > .source-logo { width:14px; height:14px; }
+svg.source-logo[data-brand=color] { opacity:1; }
+
+/* Phones: Sources is a bottom sheet, lower than the chat so the dashboard stays tappable above. */
+@media (max-width:639px) {
+  .live-source-slot, .live-source-slot[data-open=true] { position:fixed; inset:auto 0 0 0; width:100%; height:min(62dvh, 600px); z-index:45; }
+  .live-source-panel { inset:0; width:100%; min-width:0; padding-top:10px; border-left:0; border-radius:16px 16px 0 0; box-shadow:var(--studio-overlay-shadow); transform:translateY(100%); }
+  .live-source-slot[data-open=true] .live-source-panel { transform:translateY(0); }
+  .live-source-panel::before { content:""; position:absolute; top:6px; left:50%; width:36px; height:4px; margin-left:-18px; border-radius:999px; background:color-mix(in srgb, var(--foreground) 18%, transparent); }
+}
+/* Focus moves to the heading for screen readers; it is not a control, so no ring. */
+.studio-shell [data-source-heading]:focus, .studio-shell [data-source-heading]:focus-visible { outline:none; }

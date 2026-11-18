@@ -46,6 +46,8 @@ const message = z.discriminatedUnion("role", [userMessage, assistantMessage, too
 
 /** The AG-UI `context` entry naming the dashboard the user is looking at; its value is the dashboard's id. */
 export const VIEWING_DASHBOARD = "The dashboard the user is looking at";
+/** Explicit creation intent from the sidebar's New dashboard entry. */
+export const DASHBOARD_INTENT = "Dashboard action";
 
 const contextEntry = z.object({ description: z.string().max(200), value: z.string().max(500) }).strip();
 

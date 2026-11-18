@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon, DatabaseIcon, PlusIcon } from "lucide-react";
+import { ChevronDownIcon, PlusIcon } from "@/components/shell/icons";
 import Link from "next/link";
 
 import {
@@ -13,6 +13,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+
+import { DatabaseGlyph } from "./studio-controls";
 
 /** `source` is a short label such as "PostHog US" or "Postgres". */
 export type PickerConnection = { id: string; name: string; source: string };
@@ -49,13 +51,12 @@ export function DataSourcePicker({
         <DropdownMenuTrigger
           disabled={disabled}
           className={cn(
-            "flex h-8 max-w-[16rem] items-center gap-1.5 rounded-lg border px-2.5 text-xs transition-colors",
-            "hover:bg-neutral-50 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
-            "disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-neutral-50",
-            chosen.length ? "text-foreground/80" : "border-dashed text-muted-foreground",
+            "studio-source-picker flex h-8 max-w-[16rem] items-center gap-1.5 rounded-full pr-2 pl-2.5 text-[13px] transition-colors",
+            "text-[var(--studio-icon)] hover:bg-[var(--studio-hover)] hover:text-foreground",
+            "disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-[var(--studio-selected)] data-[state=open]:text-foreground",
           )}
         >
-          <DatabaseIcon className="size-3.5 shrink-0" aria-hidden />
+          <DatabaseGlyph className="size-4 shrink-0" />
           <span className="truncate">{label}</span>
           <ChevronDownIcon className="size-3.5 shrink-0 opacity-60" aria-hidden />
         </DropdownMenuTrigger>

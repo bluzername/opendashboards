@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Data inspection · OpenDashboards design</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+  <script>const previewParams = new URLSearchParams(location.search); if (previewParams.has('embed')) document.body.classList.add('embedded'); if (previewParams.has('baseline')) document.body.classList.add('baseline');</script>
+  <div class="app" id="app">
+    <aside class="navigation" aria-label="Workspace navigation">
+      <div class="brand"><img src="assets/shiro-logo.svg" alt="OpenUI"><span>/</span><strong>Dashboards</strong></div>
+      <button class="nav-item" id="nav-toggle"><i data-icon="panel"></i><span>Collapse sidebar</span></button>
+      <div class="nav-section">Workspace</div>
+      <button class="nav-item active" id="overview-nav"><i data-icon="layout"></i><span>Business overview</span></button>
+      <button class="nav-item" id="connections-nav"><i data-icon="database"></i><span>Data sources</span></button>
+      <div class="nav-bottom"><span class="avatar">R</span><div><strong>Retail workspace</strong><span>Sample workspace</span></div></div>
+    </aside>
+    <main class="workspace">
+      <header class="workspace-header"><div class="crumb"><button class="icon-button mobile-nav" aria-label="Toggle navigation" id="mobile-nav"><i data-icon="panel"></i></button><span>Retail workspace</span><i data-icon="chevron"></i><strong>Business overview</strong></div><div class="header-actions"><span class="prototype-label">Design prototype</span><button class="button" id="build-toggle" aria-expanded="false"><i data-icon="sparkles"></i>Build</button></div></header>
+      <div class="stage">
+        <section class="dashboard-stage" aria-label="Dashboard">
+          <div class="dashboard-toolbar"><span id="updated">Sample data · November 2026</span><div><button class="icon-button" id="refresh" aria-label="Refresh sample data" title="Refresh"><i data-icon="refresh"></i></button><button class="button sources-toggle" id="sources-toggle" aria-label="Sources" aria-expanded="false" aria-controls="source-panel"><i data-icon="database"></i><span>Sources</span></button></div></div>
+          <div class="dashboard-scroll" id="dashboard-scroll">
+            <div class="dashboard-heading"><div><h1>Business overview</h1><p>Revenue, orders, and the customers behind them.</p></div><label class="period"><i data-icon="calendar"></i><select id="period" aria-label="Date range"><option value="month">This month</option><option value="week">Last 7 days</option></select><i data-icon="down"></i></label></div>
+            <div class="metrics" id="metrics"></div>
+            <div class="chart-grid">
+              <section class="card trend-card"><div class="card-header"><div><h2>Revenue over time</h2><p>Daily revenue, compared with the previous period</p></div><span class="legend"><span class="legend-dot"></span>Revenue</span></div><div class="chart-target" id="revenue-chart" data-inspect="daily" tabindex="0" role="button" aria-label="Inspect revenue over time"><div id="chart"></div></div><div class="chart-caption"><span class="legend-dot previous"></span>Previous period<span class="caption-right">USD</span></div></section>
+              <section class="card categories-card"><div class="card-header"><div><h2>Revenue by category</h2><p>What customers are buying</p></div></div><div id="categories"></div></section>
+            </div>
+            <section class="card orders-card"><div class="card-header"><div><h2>Recent orders</h2><p>Latest orders in this period</p></div><button class="text-button" id="inspect-orders"><i data-icon="database"></i>View data</button></div><div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Category</th><th>Date</th><th class="numeric">Amount</th></tr></thead><tbody id="orders"></tbody></table></div></section>
+            <div class="dashboard-foot"><span><i data-icon="database"></i>Sample retail data</span><span>Select a number to explore its source.</span></div>
+          </div>
+        </section>
+        <aside class="source-panel" id="source-panel" aria-label="Sources" hidden><div class="resize-handle" id="panel-resizer" role="separator" tabindex="0" aria-label="Resize Sources panel" aria-orientation="vertical" aria-valuenow="360" aria-valuemin="300" aria-valuemax="520"></div><div id="panel-content"></div></aside>
+        <aside class="build-panel" id="build-panel" aria-label="Build conversation" hidden><header class="panel-header"><strong><i data-icon="sparkles"></i>Build</strong><button class="icon-button" id="close-build" aria-label="Close Build"><i data-icon="close"></i></button></header><div class="conversation"><span class="conversation-caption">Sample conversation</span><div class="user-message">Build a business overview with revenue, orders, average order value, and top categories.</div><div class="agent-message"><img src="assets/shiro-logo.svg" alt=""><p>Your business overview is ready. It includes revenue trends, category performance, and recent orders.</p><p>You can select any number to inspect the data and calculation behind it.</p></div><button class="artifact-link" id="back-dashboard"><i data-icon="layout"></i><div><strong>Business overview</strong><span>Open dashboard</span></div><i data-icon="chevron"></i></button></div><div class="build-note">This preview is for reviewing dashboard interactions. Chat generation is not connected.</div></aside>
+      </div>
+    </main>
+  </div>
+  <div class="selection-toolbar" id="selection-toolbar" role="toolbar" aria-label="Selected value actions" hidden><span id="selection-name"></span><button class="icon-button" id="selection-source" aria-label="See where this comes from" title="See where this comes from"><i data-icon="database"></i></button></div>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script src="app.js"></script>
+</body></html>

@@ -1,22 +1,27 @@
 "use client";
 
 import { OpenUICloudProvider } from "@openuidev/react-ui/cloud";
-import { ChevronLeftIcon, PanelRightCloseIcon, PanelRightOpenIcon, SparklesIcon } from "lucide-react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createContext, use, useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 
-import { renameAppAction } from "@/app/(app)/apps/actions";
-import { InlineRename } from "@/components/inline-rename";
+import { usePanelLayout } from "@/components/shell/use-panel-layout";
 import { Button } from "@/components/ui/button";
-import { appPath, dashboardPath, parseAppPath } from "@/lib/apps/paths";
-import { cn } from "@/lib/utils";
+import { ChatStateIcon } from "./studio-controls";
 
 import { NewDashboard } from "./live-dashboard";
+import "./studio.css";
 
 type Dashboard = { id: string; title: string };
 
-const BuildPanelContext = createContext<{ open: boolean; setOpen: (open: boolean) => void } | null>(null);
+type ComposeRequest = { version: number; text?: string };
+const BuildPanelContext = createContext<{
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  compose: (text?: string) => void;
+  composeRequest: ComposeRequest | null;
+  draft: string;
+  setDraft: Dispatch<SetStateAction<string>>;
+} | null>(null);
 
 /**
  * A dashboard the Build chat is creating, shown in place of the page it started
@@ -58,15 +63,6 @@ export function useSetCreatingDashboard() {
   return useDashboardResponses().setCreating;
 }
 
-const RenameAppContext = createContext<(() => void) | null>(null);
-
-/** Starts renaming the app in place, in the header: for the app's menu. */
-export function useRenameApp() {
-  const context = use(RenameAppContext);
-  if (!context) throw new Error("useRenameApp must be used inside AppWorkspace");
-  return context;
-}
-
 /** The Build panel's open state, for content inside the workspace. */
 export function useBuildPanel() {
   const context = use(BuildPanelContext);
@@ -74,83 +70,62 @@ export function useBuildPanel() {
   return context;
 }
 
-/**
- * The app's name in the header. Clicking it (or Rename in the app's menu)
- * edits it in place; the new name shows straight away.
- */
-function AppTitle({
-  appId,
-  name,
-  renaming,
-  onRenamingChange,
-}: {
-  appId: string;
-  name: string;
-  renaming: boolean;
-  onRenamingChange: (renaming: boolean) => void;
-}) {
-  // A saved name shows until the server's copy catches up.
-  const [saved, setSaved] = useState<{ from: string; to: string } | null>(null);
-  const shown = saved && saved.from === name ? saved.to : name;
+const WorkspaceHeaderContext = createContext<{ name: string; badges: React.ReactNode; addSource?: React.ReactNode } | null>(null);
 
-  if (renaming) {
-    return (
-      <h1 className="min-w-0 flex-1 sm:max-w-sm">
-        <InlineRename
-          value={shown}
-          label="App name"
-          maxLength={80}
-          onSave={(next) => renameAppAction({ id: appId, name: next })}
-          onDone={(next) => {
-            setSaved(next === name ? null : { from: name, to: next });
-            onRenamingChange(false);
-          }}
-          className="h-7 w-full text-sm font-semibold"
-        />
-      </h1>
-    );
-  }
-  return (
-    <h1 className="min-w-0">
-      <button
-        type="button"
-        onClick={() => onRenamingChange(true)}
-        title="Rename"
-        className="block max-w-full cursor-text truncate rounded-md px-1.5 py-1 text-left text-sm font-semibold transition-colors hover:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
-      >
-        {shown}
-      </button>
-    </h1>
-  );
+/**
+ * Built like the chat header: title on the left, compact actions on the right.
+ * With chat collapsed it leads with a labelled "Edit with AI" toggle.
+ */
+export function WorkspaceHeader({ actions }: { actions?: React.ReactNode }) {
+  const workspace = use(WorkspaceHeaderContext);
+  const panel = use(BuildPanelContext);
+  return <header className="studio-panel-header flex shrink-0 items-center gap-2">
+    {panel && !panel.open && <>
+      <Button size="sm" variant="ghost" className="studio-chat-trigger" aria-controls="app-builder" aria-expanded={false} onClick={() => panel.compose()}><ChatStateIcon open={false} />Edit with AI</Button>
+      <span className="studio-header-divider" aria-hidden />
+    </>}
+    <span className="studio-workspace-name min-w-0 truncate font-medium" title={workspace?.name}>{workspace?.name}</span>
+    <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">{workspace?.badges}</div>
+    <div className="flex shrink-0 items-center gap-1">{workspace?.addSource}{actions}</div>
+  </header>;
 }
 
-/**
- * An app's workspace, shared by all its dashboards: the header, the selected
- * dashboard (the page, as children), and the Build panel on the right, where
- * you ask OpenDashboards to build. The app's dashboards are listed in the main sidebar.
- *
- * It lives in the app's layout, so moving between dashboards keeps the Build
- * panel as it was. It starts open when there's nothing to look at yet, and
- * collapsed once there is.
- */
 export function AppWorkspace({
-  appId,
   name,
   badges,
-  menu,
+  addSource,
   builder,
-  dashboards,
   children,
 }: {
   appId: string;
   name: string;
   badges: React.ReactNode;
-  menu: React.ReactNode;
+  /** The header's "+" for adding a data source, beside Sources. */
+  addSource?: React.ReactNode;
   builder: React.ReactNode;
   dashboards: Dashboard[];
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(dashboards.length === 0);
+  const [open, updateOpen] = useState(true);
+  const { root: workspaceRef, prepare: prepareLayout } = usePanelLayout(open);
+  const setOpen = useCallback((next: boolean) => {
+    if (next === open) return;
+    prepareLayout();
+    updateOpen(next);
+  }, [open, prepareLayout]);
+  const previousOpen = useRef(open);
+  useEffect(() => {
+    // Closing hands focus to the header's Chat toggle, which takes the panel's place.
+    if (previousOpen.current && !open) workspaceRef.current?.querySelector<HTMLButtonElement>(".studio-chat-trigger")?.focus({ preventScroll: true });
+    previousOpen.current = open;
+  }, [open, workspaceRef]);
+  const [draft, setDraft] = useState("");
+  const [composeRequest, setComposeRequest] = useState<ComposeRequest | null>(null);
+  const compose = useCallback((text?: string) => {
+    setOpen(true);
+    if (text !== undefined) setDraft(text);
+    setComposeRequest(current => ({ version: (current?.version ?? 0) + 1, text }));
+  }, [setOpen]);
   const [responses, setResponses] = useState<Record<string, string>>({});
   const publish = useCallback(
     (artifactId: string, response: string) =>
@@ -159,8 +134,6 @@ export function AppWorkspace({
   );
   const [creating, setCreating] = useState<Creating | null>(null);
   const dashboardResponses = useMemo(() => ({ responses, publish, setCreating }), [responses, publish]);
-  const [renaming, setRenaming] = useState(false);
-  const startRename = useCallback(() => setRenaming(true), []);
   // Moving to another page, or to the new dashboard once it opens, hands back to the page.
   const pathname = usePathname();
   // Leaving the page once the response is in means the app opened the new dashboard
@@ -173,96 +146,21 @@ export function AppWorkspace({
     // share its token and artifact cache.
     <OpenUICloudProvider token="/api/frontend-token">
     <DashboardResponsesContext value={dashboardResponses}>
-    <BuildPanelContext value={{ open, setOpen }}>
-    <RenameAppContext value={startRename}>
-      <div className="flex h-full flex-col">
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-2">
-          <Link
-            href="/apps"
-            aria-label="All apps"
-            className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-neutral-100 hover:text-foreground"
-          >
-            <ChevronLeftIcon className="size-4" aria-hidden />
-          </Link>
-          <AppTitle appId={appId} name={name} renaming={renaming} onRenamingChange={setRenaming} />
-          <div className="ml-1 hidden min-w-0 flex-1 items-center gap-1.5 overflow-hidden sm:flex">{badges}</div>
-          <div className="ml-auto flex shrink-0 items-center gap-1">
-            <Button
-              variant={open ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setOpen(!open)}
-              aria-expanded={open}
-              aria-controls="app-builder"
-            >
-              {open ? <PanelRightCloseIcon aria-hidden /> : <PanelRightOpenIcon aria-hidden />}
-              Build
-            </Button>
-            {menu}
-          </div>
-        </header>
-
-        <div className="relative flex min-h-0 flex-1">
-          <div className="flex min-w-0 flex-1 flex-col">
-            <MobileDashboardTabs appId={appId} dashboards={dashboards} />
-            {showCreating ? <NewDashboard response={creating.response} /> : children}
-          </div>
-
-          <aside
-            id="app-builder"
-            aria-label="Build"
-            className={cn(
-              "min-h-0 flex-col border-l bg-background",
-              // Beside the dashboard on wide screens, over it below 1024px.
-              "absolute inset-y-0 right-0 z-10 w-full shadow-xl sm:w-[380px] lg:static lg:shadow-none",
-              open ? "flex" : "hidden",
-            )}
-          >
-            <div className="flex h-11 shrink-0 items-center justify-between border-b pr-1.5 pl-4">
-              <span className="flex items-center gap-2 text-sm font-medium">
-                <SparklesIcon className="size-4 text-muted-foreground" aria-hidden />
-                Build
-              </span>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setOpen(false)}
-                aria-label="Collapse the Build panel"
-              >
-                <PanelRightCloseIcon aria-hidden />
-              </Button>
-            </div>
+    <BuildPanelContext value={{ open, setOpen, compose, composeRequest, draft, setDraft }}>
+    <WorkspaceHeaderContext value={{ name, badges, addSource }}>
+      <div ref={workspaceRef} className="studio-workspace relative flex h-full min-w-0">
+        <div className="studio-chat-slot" data-open={open} data-shell-flip>
+          <aside id="app-builder" aria-label="Chat" className="studio-chat" aria-hidden={!open} inert={!open}>
             {builder}
           </aside>
         </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          {showCreating ? <NewDashboard response={creating.response} /> : children}
+        </div>
       </div>
-    </RenameAppContext>
+    </WorkspaceHeaderContext>
     </BuildPanelContext>
     </DashboardResponsesContext>
     </OpenUICloudProvider>
-  );
-}
-
-/** Below md there's no sidebar, so the app's dashboards show as a strip of tabs. */
-function MobileDashboardTabs({ appId, dashboards }: { appId: string; dashboards: Dashboard[] }) {
-  const { dashboardId } = parseAppPath(usePathname());
-  if (!dashboards.length) return null;
-  const activeId = dashboardId ?? dashboards[0].id;
-
-  return (
-    <nav
-      aria-label="Dashboards"
-      className="flex shrink-0 gap-1 overflow-x-auto border-b px-3 py-2 [scrollbar-width:none] md:hidden"
-    >
-      {dashboards.map((dashboard, index) => (
-        <Link
-          key={dashboard.id}
-          href={index === 0 ? appPath(appId) : dashboardPath(appId, dashboard.id)}
-          aria-current={dashboard.id === activeId ? "page" : undefined}
-          className="shrink-0 rounded-md px-3 py-1 text-sm text-muted-foreground aria-[current=page]:bg-neutral-100 aria-[current=page]:font-medium aria-[current=page]:text-foreground"
-        >
-          {dashboard.title}
-        </Link>
-      ))}
-    </nav>
   );
 }

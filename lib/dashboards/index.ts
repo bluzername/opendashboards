@@ -143,6 +143,7 @@ function dataTools(): Record<string, DataTool<ToolContext>> {
         parameters: tool.parameters,
         output: tool.output,
         async execute(args, context, { signal }) {
+          context.trace?.push({ name: tool.name, args });
           try {
             return await tool.run(args, context, { signal, caller: "dashboard" });
           } catch (error) {

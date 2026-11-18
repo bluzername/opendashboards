@@ -16,7 +16,7 @@ import {
   type Message,
   type TimelineStep,
 } from "@openuidev/react-ui";
-import { ArrowUpIcon, CheckIcon, ChevronDownIcon, PlusIcon, SparklesIcon, SquareIcon } from "lucide-react";
+import { PanelCloseLeftIcon, ArrowUpIcon, ArrowUpRightIcon, CheckIcon, ChevronDownIcon, PlusIcon, SquareIcon } from "@/components/shell/icons";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { parseMessage } from "@openuidev/lang-core";
@@ -25,20 +25,20 @@ import remarkGfm from "remark-gfm";
 import "@openuidev/react-ui/styles/index.css";
 
 import { takePendingPromptAction } from "@/app/(app)/apps/actions";
-import { VIEWING_DASHBOARD } from "@/lib/agent/messages";
+import { DASHBOARD_INTENT, VIEWING_DASHBOARD } from "@/lib/agent/messages";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { dashboardPath, parseAppPath } from "@/lib/apps/paths";
-import { usePublishDashboardResponse, useSetCreatingDashboard } from "./app-workspace";
+import { useBuildPanel, usePublishDashboardResponse, useSetCreatingDashboard } from "./app-workspace";
 import { scopeStorageToApp } from "@/lib/apps/thread-storage";
 import { cn } from "@/lib/utils";
+import { StudioIconButton } from "./studio-controls";
 
 type Dashboard = { id: string; artifactId: string };
 
@@ -77,11 +77,14 @@ export function BuildChat({
   // The dashboard on screen: the one in the URL, or the app's first on its home.
   const pathname = usePathname();
   const { dashboardId } = parseAppPath(pathname);
-  const viewingId = (dashboardId ? dashboards.find((d) => d.id === dashboardId) : dashboards[0])?.artifactId ?? null;
+  const isNewDashboard = pathname.endsWith("/new");
+  const viewingId = isNewDashboard ? null : (dashboardId ? dashboards.find((d) => d.id === dashboardId) : dashboards[0])?.artifactId ?? null;
   const viewing = useRef<string | null>(viewingId);
+  const creatingNew = useRef(isNewDashboard);
   useEffect(() => {
     viewing.current = viewingId;
-  }, [viewingId]);
+    creatingNew.current = isNewDashboard;
+  }, [viewingId, isNewDashboard]);
 
   // fetchLLM's request, plus AG-UI `context` naming the dashboard on screen
   // (fetchLLM always sends an empty context). Same adapter and message format.
@@ -96,7 +99,9 @@ export function BuildChat({
             threadId,
             runId: crypto.randomUUID(),
             tools: [],
-            context: viewing.current ? [{ description: VIEWING_DASHBOARD, value: viewing.current }] : [],
+            context: creatingNew.current
+              ? [{ description: DASHBOARD_INTENT, value: "create" }]
+              : viewing.current ? [{ description: VIEWING_DASHBOARD, value: viewing.current }] : [],
             messages: openAIMessageFormat.toApi(messages),
           }),
           signal,
@@ -115,20 +120,38 @@ export function BuildChat({
             react-ui's stylesheet isn't in a cascade layer. Delete once
             react-ui fixes it. */}
         <div className="flex min-h-0 flex-1 flex-col [&_.openui-behind-the-scenes\_\_items]:overscroll-auto!">
+          <NewDashboardChat appId={appId} active={isNewDashboard} />
           <ThreadBar />
-          <ThreadMessages hasDashboards={dashboards.length > 0} />
-          <Composer />
+          <ThreadMessages hasDashboards={!isNewDashboard && dashboards.length > 0} />
+          <Composer newDashboard={isNewDashboard} />
         </div>
         <TurnEffects appId={appId} dashboards={dashboards} hasPendingPrompt={hasPendingPrompt} />
         {/* A new app's first prompt starts its own conversation: nothing to reopen. */}
-        {!startedWithPrompt && <ReopenLastThread appId={appId} />}
+        {!startedWithPrompt && !isNewDashboard && <ReopenLastThread appId={appId} />}
       </ChatProvider>
     </ThemeProvider>
   );
 }
 
+/** Starting a dashboard opens a fresh conversation; no data is created until Send. */
+function NewDashboardChat({ appId, active }: { appId: string; active: boolean }) {
+  const switchToNewThread = useThreadList((s) => s.switchToNewThread);
+  const isRunning = useThread((s) => s.isRunning);
+  const { setOpen } = useBuildPanel();
+  const started = useRef(false);
+  useEffect(() => {
+    if (!active) { started.current = false; return; }
+    if (started.current || isRunning) return;
+    started.current = true;
+    setOpen(true);
+    switchToNewThread();
+  }, [appId, active, isRunning, setOpen, switchToNewThread]);
+  return null;
+}
+
 /** The thread in view, the app's other threads, and a new one. */
 function ThreadBar() {
+  const { setOpen } = useBuildPanel();
   const threads = useThreadList((s) => s.threads);
   const selectedId = useThreadList((s) => s.selectedThreadId);
   const loadThreads = useThreadList((s) => s.loadThreads);
@@ -138,38 +161,26 @@ function ThreadBar() {
 
   useEffect(() => loadThreads(), [loadThreads]);
 
-  const current = threads.find((thread) => thread.id === selectedId);
-
   return (
-    <div className="flex h-10 shrink-0 items-center gap-1 border-b px-2">
+    <div className="studio-chat-header">
       <DropdownMenu>
-        <DropdownMenuTrigger
-          disabled={isRunning || threads.length === 0}
-          className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-2 py-1 text-left text-sm text-muted-foreground hover:bg-neutral-100 hover:text-foreground disabled:pointer-events-none"
-        >
-          <span className="truncate">{current?.title ?? "New chat"}</span>
-          {threads.length > 0 && <ChevronDownIcon className="size-3.5 shrink-0" aria-hidden />}
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-72">
-          <DropdownMenuLabel>Chats in this app</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {threads.map((thread) => (
-            <DropdownMenuItem key={thread.id} onSelect={() => selectThread(thread.id)}>
-              <span className="min-w-0 flex-1 truncate">{thread.title}</span>
-              {thread.id === selectedId && <CheckIcon aria-hidden />}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => newThread()}
-        disabled={isRunning || !selectedId}
-        aria-label="New chat"
-      >
-        <PlusIcon aria-hidden />
-      </Button>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="studio-conversation-trigger" disabled={isRunning || threads.length === 0} aria-label="Chat history"><span>{threads.find(thread => thread.id === selectedId)?.title || "New chat"}</span><ChevronDownIcon aria-hidden /></Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" sideOffset={6} className="studio-menu w-72">
+            <DropdownMenuLabel>Recent chats</DropdownMenuLabel>
+            {threads.map((thread) => (
+              <DropdownMenuItem key={thread.id} onSelect={() => selectThread(thread.id)}>
+                <span className="min-w-0 flex-1 truncate" title={thread.title}>{thread.title}</span>
+                {thread.id === selectedId && <CheckIcon aria-hidden />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        <StudioIconButton label="New chat" onClick={() => newThread()} disabled={isRunning || !selectedId}><PlusIcon /></StudioIconButton>
+        <StudioIconButton label="Hide chat" aria-controls="app-builder" aria-expanded={true} onClick={() => setOpen(false)}><PanelCloseLeftIcon /></StudioIconButton>
+      </div>
     </div>
   );
 }
@@ -197,6 +208,7 @@ function groupIntoTurns(messages: Message[]): Group[] {
 }
 
 function ThreadMessages({ hasDashboards }: { hasDashboards: boolean }) {
+  const { compose } = useBuildPanel();
   const messages = useThread((s) => s.messages);
   const isRunning = useThread((s) => s.isRunning);
   const isLoading = useThread((s) => s.isLoadingMessages);
@@ -220,12 +232,20 @@ function ThreadMessages({ hasDashboards }: { hasDashboards: boolean }) {
 
   if (!isLoading && messages.length === 0) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-        <SparklesIcon className="size-5 text-muted-foreground" aria-hidden />
-        <p className="text-sm font-medium">{hasDashboards ? "Change or add dashboards" : "Ask for a dashboard"}</p>
-        <p className="text-sm text-muted-foreground">
-          Describe what you want to see. OpenDashboards explores your data and builds it.
-        </p>
+      <div className="studio-build-empty">
+        <h2>{hasDashboards ? "What would you like to change?" : "What would you like to see?"}</h2>
+        <p>{hasDashboards ? "Refine this dashboard, or explore something new." : "Start with a question about your data."}</p>
+        <div className="studio-prompt-suggestions" aria-label="Suggested prompts">
+          {(hasDashboards ? [
+            ["Break down a metric", "Break down revenue by category and show what contributes most."],
+            ["Compare over time", "Compare performance over time and highlight the biggest changes."],
+            ["Add a chart", "Add a chart showing the most useful trend in this dashboard."],
+          ] : [
+            ["An overview of my data", "Create a dashboard with the key metrics and trends in my data."],
+            ["Track performance", "Create a dashboard to track performance over time."],
+            ["Compare categories", "Create a dashboard comparing performance across categories."],
+          ]).map(([label, prompt]) => <button key={label} onClick={() => compose(prompt)}><span>{label}</span><ArrowUpRightIcon aria-hidden /></button>)}
+        </div>
       </div>
     );
   }
@@ -239,9 +259,9 @@ function ThreadMessages({ hasDashboards }: { hasDashboards: boolean }) {
         const el = event.currentTarget;
         pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
       }}
-      className="relative min-h-0 flex-1 overflow-y-auto"
+      className="studio-chat-scroll relative min-h-0 flex-1 overflow-y-auto"
     >
-      <div className="flex flex-col gap-4 p-4">
+      <div className="studio-messages flex flex-col gap-5 p-4">
         {groups.map((group) =>
           group.kind === "user" ? (
             <UserBubble key={group.message.id} message={group.message} />
@@ -257,7 +277,7 @@ function ThreadMessages({ hasDashboards }: { hasDashboards: boolean }) {
         {/* Before the first event of a turn arrives, the timeline's own "Working" header. */}
         {isRunning && !lastTurnLive && <ToolCallTimeline activities={[]} isLast awaitingResponse />}
         {!isRunning && threadError && (
-          <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p role="alert" className="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
             {threadError.message || "Something went wrong. Try again."}
           </p>
         )}
@@ -274,7 +294,7 @@ function UserBubble({ message }: { message: Message }) {
         ? message.content.map((part) => ("text" in part ? part.text : "")).join("")
         : "";
   return (
-    <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-neutral-100 px-3.5 py-2.5 text-sm whitespace-pre-wrap">
+    <div className="studio-user-message ml-auto max-w-[94%] whitespace-pre-wrap">
       {text}
     </div>
   );
@@ -350,8 +370,13 @@ function AssistantTurn({
   );
 }
 
-function Composer() {
-  const [text, setText] = useState("");
+function Composer({ newDashboard }: { newDashboard: boolean }) {
+  const { composeRequest, draft: text, setDraft: setText } = useBuildPanel();
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!composeRequest) return;
+    inputRef.current?.focus({ preventScroll: true });
+  }, [composeRequest]);
   const isRunning = useThread((s) => s.isRunning);
   const processMessage = useThread((s) => s.processMessage);
   const cancel = useThread((s) => s.cancelMessage);
@@ -364,9 +389,10 @@ function Composer() {
   }
 
   return (
-    <div className="shrink-0 border-t p-3">
-      <div className="flex items-end gap-2 rounded-xl border bg-background px-3 py-2 focus-within:ring-2 focus-within:ring-ring/30">
+    <div className="studio-composer-wrap shrink-0 p-3">
+      <div className="studio-composer">
         <textarea
+          ref={inputRef}
           value={text}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
@@ -375,10 +401,10 @@ function Composer() {
               send();
             }
           }}
-          rows={1}
-          placeholder="Ask OpenDashboards to build or change a dashboard…"
+          rows={2}
+          placeholder={newDashboard ? "Describe your dashboard…" : "Ask for a change…"}
           aria-label="Message OpenDashboards"
-          className="max-h-40 min-h-7 flex-1 resize-none bg-transparent py-1 text-sm outline-none [field-sizing:content] placeholder:text-muted-foreground"
+          className="studio-composer-input"
         />
         {isRunning ? (
           <Button size="icon-sm" variant="secondary" onClick={() => cancel()} aria-label="Stop">
@@ -390,7 +416,7 @@ function Composer() {
             onClick={send}
             disabled={!canSend}
             aria-label="Send"
-            className={cn("rounded-full", !canSend && "opacity-40")}
+            className={cn("studio-send rounded-full", !canSend && "opacity-40")}
           >
             <ArrowUpIcon aria-hidden />
           </Button>
@@ -411,10 +437,15 @@ function ReopenLastThread({ appId }: { appId: string }) {
   const threads = useThreadList((s) => s.threads);
   const selectedId = useThreadList((s) => s.selectedThreadId);
   const selectThread = useThreadList((s) => s.selectThread);
+  const isRunning = useThread((s) => s.isRunning);
   const reopened = useRef(false);
 
   useEffect(() => {
-    if (reopened.current || !threads.length) return;
+    if (reopened.current) return;
+    // A first send creates a thread before selection finishes. Reopening that
+    // thread in between would cancel the request that is creating it.
+    if (isRunning || selectedId) { reopened.current = true; return; }
+    if (!threads.length) return;
     reopened.current = true;
     if (selectedId) return; // Already chose one (or sent a message) before the list arrived.
     let last: string | null = null;
@@ -423,7 +454,7 @@ function ReopenLastThread({ appId }: { appId: string }) {
     } catch {}
     const thread = threads.find((candidate) => candidate.id === last) ?? threads[0];
     selectThread(thread.id);
-  }, [appId, threads, selectedId, selectThread]);
+  }, [appId, threads, selectedId, selectThread, isRunning]);
 
   useEffect(() => {
     if (!selectedId) return;

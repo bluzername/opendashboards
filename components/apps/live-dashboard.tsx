@@ -1,8 +1,7 @@
 "use client";
 
 import { LiveArtifactRenderer, useArtifactRenderer } from "@openuidev/react-ui/cloud";
-import { library } from "@openuidev/dashboard-library";
-import { LoaderCircleIcon } from "lucide-react";
+import { LoaderCircleIcon } from "@/components/shell/icons";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -10,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 import { useDashboardResponse } from "./app-workspace";
 import { DashboardTitle } from "./dashboard-title";
+import { SourceInspector, InspectorIdentity, inspectionLibrary } from "./source-inspector";
 
 const interpreter = { url: "/api/interpreter" };
 
@@ -21,7 +21,6 @@ const interpreter = { url: "/api/interpreter" };
  * follows the new version as it's built.
  */
 export function LiveDashboard({
-  appId,
   dashboard,
 }: {
   appId: string;
@@ -30,7 +29,7 @@ export function LiveDashboard({
   const response = useDashboardResponse(dashboard.artifactId);
   return (
     <DashboardView id={dashboard.artifactId} response={response}>
-      <DashboardTitle appId={appId} dashboard={dashboard} />
+      <DashboardTitle dashboard={dashboard} />
     </DashboardView>
   );
 }
@@ -59,15 +58,15 @@ function DashboardView({
   // Where the loading capsule draws: over the bottom of the dashboard, outside the part that scrolls.
   const [overlay, setOverlay] = useState<HTMLDivElement | null>(null);
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto bg-white">
+    <SourceInspector key={id} artifactId={id} response={response}><div className="relative flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-background">
         {children}
         <LiveArtifactRenderer
           id={id}
           response={response}
           preview={false}
           className={cn(fill && "h-full")}
-          library={library}
+          library={inspectionLibrary}
           interpreter={interpreter}
           onError={(errors) => {
             if (errors.length) console.error("[dashboard]", JSON.stringify(errors));
@@ -79,12 +78,13 @@ function DashboardView({
               {/* In place of the renderer's top-right pill, which sat on the filter bar. */}
               <LoadingCapsule container={overlay} />
               <LiveArtifactRenderer.Error />
+              <InspectorIdentity />
             </LiveArtifactRenderer.Content>
           </LiveArtifactRenderer.Chrome>
         </LiveArtifactRenderer>
       </div>
       <div ref={setOverlay} className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center" />
-    </div>
+    </div></SourceInspector>
   );
 }
 

@@ -9,6 +9,9 @@ import { logError, withLogContext } from "@/lib/log";
 import { ALL_SOURCES } from "@/lib/sources";
 import type { ConnectionType } from "@/lib/sources/catalog";
 import type { ConnectionSource, SourceTool, ToolCaller } from "@/lib/sources/types";
+import { localFileTools } from "./local-files";
+import { localRetailEnabled, localRetailTools } from "./local-retail";
+import { listedSampleConnections, runSampleTool, sampleConnection } from "./sample-connections";
 
 /**
  * Turns every source's tools into tools the agent and dashboards can call.
@@ -23,7 +26,12 @@ import type { ConnectionSource, SourceTool, ToolCaller } from "@/lib/sources/typ
  */
 
 /** Who a call is for. Comes from the session and the route, never from the model. */
-export type ToolContext = { userId: string; appId: string };
+export type ToolContext = {
+  userId: string;
+  appId: string;
+  /** Set while a generated script runs: the data calls it makes, for the Sources panel. */
+  trace?: { name: string; args: unknown }[];
+};
 
 /** A tool ready to run, described for the model. */
 export type Tool = {
@@ -69,6 +77,16 @@ function fromSource(source: ConnectionSource, tool: SourceTool<Record<string, un
       }
       const { connection: connectionId, ...toolArgs } = parsed.data;
 
+      // Development only: sample connections answer from local data, never the network.
+      const sample = sampleConnection(connectionId, source.type);
+      if (sample) {
+        try {
+          return await runSampleTool(sample, tool.name, toolArgs, { signal, caller });
+        } catch (error) {
+          throw new ToolError("query_failed", error instanceof Error ? error.message : String(error));
+        }
+      }
+
       const connection = await getConnectionService().open(context.userId, connectionId, source.type as ConnectionType);
       if (!connection) throw new ToolError("connection_not_found", `No ${source.label} connection with id ${connectionId}.`);
 
@@ -107,7 +125,7 @@ const listConnections: Tool = {
   callers: ["agent"],
   async run(_args, context) {
     const connections = await getConnectionService().list(context.userId);
-    return connections.map(({ id, name, type, source, detail, status, demo }) => ({
+    return [...connections.map(({ id, name, type, source, detail, status, demo }) => ({
       id,
       name,
       type,
@@ -115,7 +133,7 @@ const listConnections: Tool = {
       detail,
       status,
       ...(demo ? { demo: true, about: demo.description } : {}),
-    }));
+    })), ...listedSampleConnections()];
   },
 };
 
@@ -125,6 +143,7 @@ let tools: Tool[] | undefined;
 export function allTools(): Tool[] {
   tools ??= [
     listConnections,
+    ...(localRetailEnabled() ? [...localRetailTools, ...localFileTools] : []),
     ...ALL_SOURCES.flatMap((source) =>
       source.tools.map((tool) => fromSource(source, tool as SourceTool<Record<string, unknown>>)),
     ),

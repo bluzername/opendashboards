@@ -1,14 +1,15 @@
 "use client";
 
-import { DatabaseIcon, SquarePenIcon } from "lucide-react";
+import { SquarePenIcon } from "./icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 
+import { DatabaseGlyph } from "@/components/apps/studio-controls";
 import { cn } from "@/lib/utils";
 
 /** Icons by name: Server Components can't pass component functions to this Client Component. */
-const ICONS = { new: SquarePenIcon, connections: DatabaseIcon };
+const ICONS = { new: SquarePenIcon, connections: DatabaseGlyph };
 
 type Props = {
   href: string;
@@ -18,6 +19,8 @@ type Props = {
   exact?: boolean;
   /** Smaller, for items nested under another one. */
   nested?: boolean;
+  /** The main action (New app): full-strength colour for text and icon, like Codex's "New thread". */
+  primary?: boolean;
 };
 
 /**
@@ -41,22 +44,25 @@ function ActiveNavLink(props: Props) {
   return <NavLinkView {...props} active={active} />;
 }
 
-function NavLinkView({ href, label, icon, nested, active }: Props & { active: boolean }) {
+function NavLinkView({ href, label, icon, nested, primary, active }: Props & { active: boolean }) {
   const Icon = icon ? ICONS[icon] : null;
   return (
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
+      data-primary={primary || undefined}
       title={nested ? label : undefined}
       className={cn(
-        "flex items-center gap-2.5 rounded-lg px-2 text-sm transition-colors",
-        "hover:bg-black/[0.04] hover:text-foreground",
-        "focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
-        nested ? "h-8 text-foreground/70" : "h-9 text-foreground/80",
-        active && "bg-black/[0.06] font-medium text-foreground",
+        "studio-nav-link flex h-8 items-center gap-3 rounded-md pr-2 pl-2 text-sm text-sidebar-foreground/85 transition-colors duration-100",
+        "hover:bg-[var(--studio-hover)] hover:text-sidebar-foreground",
+        nested && "text-sidebar-foreground/75",
+        primary && "text-sidebar-foreground",
+        active && "bg-[var(--studio-selected)] text-sidebar-foreground",
       )}
     >
-      {Icon && <Icon className="size-4 shrink-0" aria-hidden />}
+      {Icon && (primary
+        ? <span className="studio-primary-tile"><Icon className="studio-nav-glyph" aria-hidden /></span>
+        : <Icon className="studio-nav-glyph" aria-hidden />)}
       <span className="truncate">{label}</span>
     </Link>
   );

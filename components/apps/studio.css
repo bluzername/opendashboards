@@ -1,0 +1,227 @@
+/* OpenUI tokens, mixed into two deliberate surface steps: navigation 3%, chat 2%. */
+:root {
+  --studio-navigation: color-mix(in srgb, var(--foreground) 3%, var(--background));
+  --studio-build: color-mix(in srgb, var(--foreground) 2%, var(--background));
+  --studio-hover: color-mix(in srgb, var(--foreground) 4%, transparent);
+  --studio-selected: color-mix(in srgb, var(--foreground) 7%, transparent);
+  --studio-divider: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --studio-icon: color-mix(in srgb, var(--foreground) 64%, var(--background));
+  --studio-nav-width: 256px;
+  --studio-build-width: 320px;
+  --studio-ease: cubic-bezier(0.2, 0, 0, 1);
+  --studio-fast: 120ms;
+  --studio-panel-duration: 220ms;
+  --studio-overlay-shadow: 0 0 0 1px var(--studio-divider), 0 4px 8px -4px color-mix(in srgb, var(--foreground) 10%, transparent), 0 12px 32px -8px color-mix(in srgb, var(--foreground) 14%, transparent);
+}
+.studio-shell { font-family:var(--font-sans); -webkit-font-smoothing:antialiased; }
+.studio-shell button, .studio-shell a { -webkit-tap-highlight-color:transparent; }
+.studio-shell button:not(:disabled), .studio-shell summary { cursor:pointer; }
+.studio-shell :focus-visible { outline:2px solid var(--ring); outline-offset:2px; }
+/* One focus ring: the shell outline, not the button primitive's extra border and halo. */
+.studio-shell :is([data-slot=button], .studio-icon-button, .studio-chat-trigger, .studio-sources-trigger, .studio-conversation-trigger, .source-selection-action):focus-visible { border-color:transparent; box-shadow:none; }
+.studio-shell button { transition-property:background-color,color,border-color,box-shadow,opacity; transition-duration:var(--studio-fast); }
+.studio-shell svg { stroke-width:1.7; }
+.studio-icon-button { width:28px; height:28px; padding:0; color:var(--studio-icon); border-radius:7px; }
+.studio-icon-button svg { width:16px; height:16px; }
+.studio-icon-button[aria-expanded] { background:transparent; color:var(--studio-icon); }
+.studio-icon-button[data-state=open], .studio-icon-button[aria-haspopup][aria-expanded=true] { background:var(--studio-selected); color:var(--foreground); }
+.studio-glyph { flex:none; }
+.studio-glyph-slot { display:inline-flex; width:16px; height:16px; flex:none; }
+.studio-tooltip { font-size:12px; font-weight:400; }
+/* Sidebar: stable inner geometry during collapse. */
+.studio-sidebar { width:var(--studio-nav-width); display:flex; position:relative; z-index:50; flex:none; flex-direction:column; background:var(--studio-navigation); border-right:1px solid var(--studio-divider); overflow:hidden; }
+.studio-sidebar-header { position:relative; height:48px; flex:none; display:flex; align-items:center; padding:0 10px; }
+.studio-brand { display:flex; align-items:center; width:28px; border-radius:var(--radius-md); opacity:1; }
+.studio-sidebar-toggle { position:absolute; right:10px; }
+.studio-sidebar-content { display:flex; width:var(--studio-nav-width); min-height:0; flex:1; flex-direction:column; padding:4px 8px 8px; opacity:1; visibility:visible; }
+.studio-sidebar-rail { position:absolute; inset:52px 0 12px; display:flex; flex-direction:column; align-items:center; gap:4px; opacity:0; visibility:hidden; pointer-events:none; }
+.studio-sidebar[data-collapsed=true] { width:48px; }
+.studio-sidebar[data-collapsed=true] .studio-brand { opacity:0; visibility:hidden; }
+.studio-sidebar[data-collapsed=true] .studio-sidebar-content { opacity:0; visibility:hidden; pointer-events:none; }
+.studio-sidebar[data-collapsed=true] .studio-sidebar-rail { opacity:1; visibility:visible; pointer-events:auto; }
+.studio-sidebar nav > div.border-t { border-color:var(--studio-divider); }
+/*
+ * One icon axis: logo, row glyphs, folder, avatar and rail all centre 24px from the
+ * sidebar edge (16px inside a row), so every hover shape around an icon sits 4px
+ * from the row on the left, top and bottom alike.
+ */
+.studio-sidebar .studio-nav-glyph { width:16px; height:16px; flex:none; color:var(--studio-icon); }
+/*
+ * New app, "icon tile": no row surface; the full-strength pen sits in a soft 24px
+ * rounded tile, the only tile in the sidebar, 4px inside its row on every side.
+ * Hover keeps everything still: as the row takes the usual wash, the tile turns white
+ * with a hairline, so it lifts off the row like a key instead of sinking into it.
+ */
+.studio-nav-link[data-primary] { padding-left:4px; gap:8px; }
+.studio-primary-tile { display:flex; width:24px; height:24px; flex:none; align-items:center; justify-content:center; border-radius:7px; background:color-mix(in srgb, var(--foreground) 8%, transparent); box-shadow:inset 0 0 0 1px transparent; transition:background-color 160ms var(--studio-ease), box-shadow 160ms var(--studio-ease); }
+.studio-sidebar .studio-nav-link[data-primary] .studio-primary-tile .studio-nav-glyph { color:var(--foreground); }
+.studio-nav-link[data-primary]:hover .studio-primary-tile, .studio-nav-link[data-primary][aria-current=page] .studio-primary-tile { background:var(--background); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--foreground) 8%, transparent), 0 1px 0 color-mix(in srgb, var(--foreground) 5%, transparent); }
+.studio-sidebar a[aria-current=page] .studio-nav-glyph { color:var(--foreground); }
+.studio-sidebar-scroll { scrollbar-width:none; }
+.studio-tree-row { border-radius:6px; }
+.studio-tree-group-link, .studio-tree-dashboard-link { padding-right:8px; }
+.studio-tree-group-row:focus-within .studio-tree-group-link, .studio-tree-group-row:has([data-state=open]) .studio-tree-group-link { padding-right:60px; }
+.studio-tree-dashboard-row:focus-within .studio-tree-dashboard-link, .studio-tree-dashboard-row:has([data-state=open]) .studio-tree-dashboard-link { padding-right:34px; }
+/* Sections: Pinned, Recents, Apps. 20px between sections, 1px between rows; labels sit on the icon column. */
+.studio-sidebar-sections { display:flex; flex-direction:column; gap:20px; }
+.studio-section-label { display:flex; height:28px; align-items:center; gap:6px; padding-left:8px; font-size:12px; font-weight:600; line-height:16px; color:var(--muted-foreground); }
+.studio-section-label svg { width:14px; height:14px; flex:none; }
+.studio-section-toggle { display:inline-flex; height:24px; align-items:center; gap:6px; margin-left:-6px; padding:0 6px; border-radius:6px; color:inherit; font-weight:inherit; }
+.studio-section-label .studio-section-caret { width:12px; height:12px; margin-left:-2px; transition:transform 160ms var(--studio-ease); }
+.studio-section-toggle[aria-expanded=true] .studio-section-caret { transform:rotate(90deg); }
+.studio-flat-list { display:flex; flex-direction:column; gap:1px; }
+.studio-flat-link { display:flex; height:32px; align-items:center; gap:12px; padding:0 8px; border-radius:6px; font-size:14px; line-height:20px; color:color-mix(in srgb, var(--sidebar-foreground) 85%, transparent); transition:background-color 100ms, color 100ms; }
+.studio-flat-row:has(.studio-row-actions):is(:hover, :focus-within) .studio-flat-link { padding-right:34px; }
+.studio-collapse { display:grid; grid-template-rows:0fr; opacity:0; transition:grid-template-rows 200ms var(--studio-ease), opacity 160ms; }
+.studio-collapse-open { grid-template-rows:1fr; opacity:1; }
+/* The folder is its own disclosure: closed when collapsed, open when expanded, crossfading with a small lift. */
+.studio-folder-toggle { color:var(--studio-icon); }
+.studio-folder-toggle > svg { position:absolute; inset:4px; transform-origin:50% 70%; }
+.studio-folder-open { opacity:0; transform:scale(0.86) translateY(1px); }
+.studio-folder-toggle[aria-expanded=true] .studio-folder-closed { opacity:0; transform:scale(0.86) translateY(1px); }
+.studio-folder-toggle[aria-expanded=true] .studio-folder-open { opacity:1; transform:none; }
+.studio-row-actions { opacity:1; gap:0; }
+.studio-row-actions :is(a,button) { display:flex; width:24px; height:24px; align-items:center; justify-content:center; padding:0; border-radius:6px; color:var(--studio-icon); background:transparent; }
+.studio-row-actions svg { width:16px !important; height:16px !important; stroke-width:1.7; }
+.studio-row-actions :is(a,button)[data-state=open] { background:var(--studio-selected); color:var(--foreground); }
+.studio-sidebar a[aria-current=page] { background:var(--studio-selected); }
+/* Rename stays inside the row: hairline border, no ring, no shadow. */
+.studio-tree input { height:28px; padding:0 8px; margin-left:-1px; border:1px solid color-mix(in srgb, var(--foreground) 24%, var(--background)); border-radius:6px; background:var(--background); box-shadow:none; outline:none; }
+.studio-shell .studio-tree input:focus-visible { outline:none; box-shadow:none; }
+/* Headers share a baseline, but their controls describe different jobs. */
+.studio-panel-header { container-type:inline-size; height:48px; padding:0 10px 0 16px; background:var(--studio-build); border-bottom:1px solid var(--studio-divider); gap:12px; }
+.studio-workspace-name { font-size:14px; line-height:20px; letter-spacing:-0.006em; }
+/* The collapsed chat keeps one icon-sized header control, without a text button. */
+.studio-workspace { overflow:clip; }
+.studio-chat-slot { position:relative; width:var(--studio-build-width); flex:none; min-height:0; z-index:5; }
+.studio-chat-slot[data-open=false] { width:0; }
+/* Collapsed chat: a labelled toggle leads the header, the same shape as Sources. */
+.studio-panel-header:has(.studio-chat-trigger) { padding-left:10px; }
+.studio-header-divider { width:1px; height:16px; flex:none; margin:0 -2px; background:var(--studio-divider); }
+.studio-chat { position:absolute; inset:0 auto 0 0; display:flex; flex-direction:column; width:var(--studio-build-width); min-width:var(--studio-build-width); background:var(--studio-build); border-right:1px solid var(--studio-divider); opacity:1; transform:translateX(0); visibility:visible; }
+.studio-chat-slot[data-open=false] .studio-chat { opacity:0; transform:translateX(-24px); visibility:hidden; pointer-events:none; }
+.studio-chat-header { display:flex; height:48px; flex:none; align-items:center; gap:8px; padding:0 10px 0 16px; border-bottom:1px solid var(--studio-divider); background:var(--studio-build); }
+.studio-chat-header .studio-conversation-trigger { justify-content:flex-start; flex:0 1 auto; width:auto; min-width:0; max-width:100%; height:28px; padding:0 6px; margin-left:-6px; gap:4px; font-size:14px; font-weight:500; color:var(--foreground); border-radius:7px; }
+.studio-conversation-trigger span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.studio-conversation-trigger > svg { width:14px; height:14px; flex:none; color:var(--studio-icon); }
+.studio-chat-scroll { overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:color-mix(in srgb, var(--foreground) 15%, transparent) transparent; }
+.studio-messages { padding-top:20px; padding-bottom:24px; }
+.studio-chat .openui-markdown-renderer,
+.studio-chat .openui-markdown-renderer p,
+.studio-chat .openui-markdown-renderer li { font-size:14px; line-height:1.65; letter-spacing:0; }
+.studio-chat .openui-markdown-renderer li + li { margin-top:8px; }
+.studio-chat .openui-markdown-renderer strong { font-weight:600; }
+/*
+ * "Behind the scenes": a quiet text disclosure. No mascot, the chevron always shows,
+ * it sits close to the answer, and it reads grey when closed and full strength when open.
+ */
+/* The turn stacks with a 12px gap; pull the answer up to sit 8px under the summary. */
+.studio-chat .openui-behind-the-scenes { margin-block-end:-4px; }
+.studio-chat .openui-behind-the-scenes__glyph { display:none; }
+.studio-chat .openui-behind-the-scenes__toggle { gap:4px; color:var(--openui-text-neutral-primary); }
+.studio-chat .openui-behind-the-scenes .openui-behind-the-scenes__toggle-icon { opacity:1; color:currentColor; }
+.studio-chat .openui-behind-the-scenes--settled .openui-behind-the-scenes__toggle[aria-expanded=false] { color:var(--openui-text-neutral-secondary); }
+.studio-chat .openui-behind-the-scenes--settled .openui-behind-the-scenes__toggle[aria-expanded=false] .openui-behind-the-scenes__toggle-label { color:inherit; }
+.studio-chat .openui-behind-the-scenes__collapse--open { margin-block-start:4px; }
+.studio-user-message { border-radius:14px 14px 5px 14px; padding:10px 12px; background:var(--background); font-size:14px; line-height:1.6; box-shadow:0 1px 2px color-mix(in srgb, var(--foreground) 3%, transparent); }
+/* The draft has a stable two-line footprint and an independent send target. */
+.studio-composer-wrap { background:var(--studio-build); }
+.studio-composer { display:flex; flex-direction:column; gap:4px; padding:10px 10px 10px 14px; border:1px solid var(--studio-divider); border-radius:16px; background:var(--background); box-shadow:none; transition:border-color var(--studio-fast); }
+.studio-input-surface { border-color:var(--border); box-shadow:none; transition:border-color var(--studio-fast); }
+/* Keep focus on the rounded composer boundary, never the inner textarea. */
+.studio-composer:focus-within, .studio-input-surface:focus-within { border-color:color-mix(in srgb, var(--foreground) 24%, var(--background)); box-shadow:none; }
+.studio-composer-input { width:100%; min-height:44px; padding-top:2px; max-height:160px; resize:none; background:transparent; font-size:14px; line-height:22px; outline:none; field-sizing:content; }
+.studio-composer-input::placeholder { color:var(--muted-foreground); }
+.studio-shell .studio-composer-input:focus-visible, .studio-shell .studio-prompt-input:focus-visible { outline:none; box-shadow:none; }
+.studio-composer > button { align-self:flex-end; }
+.studio-send { width:28px; height:28px; }
+.studio-send svg, .studio-composer > button svg { width:16px; height:16px; }
+.studio-build-empty { padding:28px 20px; min-height:0; flex:1; overflow:auto; }
+.studio-build-empty h2 { font-size:16px; line-height:24px; font-weight:500; letter-spacing:-0.015em; text-wrap:balance; }
+.studio-build-empty p { font-size:14px; line-height:22px; color:var(--muted-foreground); margin-top:7px; text-wrap:pretty; }
+.studio-prompt-suggestions { display:flex; flex-direction:column; gap:4px; margin-top:24px; }
+.studio-prompt-suggestions button { display:flex; width:100%; align-items:center; gap:12px; padding:9px 10px; margin-left:-10px; text-align:left; font-size:14px; line-height:22px; border-radius:8px; color:var(--studio-icon); }
+.studio-prompt-suggestions button span { flex:1; }
+.studio-prompt-suggestions svg { width:14px; height:14px; opacity:0.6; }
+.studio-canvas-empty { display:grid; place-items:center; flex:1; min-height:0; padding:40px 32px; overflow:auto; }
+.studio-empty-content { max-width:320px; text-align:center; margin-top:-40px; }
+.studio-empty-symbol { width:32px; height:32px; margin:0 auto 20px; color:color-mix(in srgb,var(--foreground) 42%,var(--background)); stroke-width:1.25; }
+.studio-empty-content h1 { font-size:20px; font-weight:500; letter-spacing:-0.025em; line-height:26px; text-wrap:balance; }
+.studio-empty-content p { margin-top:8px; font-size:14px; line-height:22px; color:var(--muted-foreground); text-wrap:pretty; }
+.studio-empty-action { margin-top:20px; color:var(--studio-icon); font-size:14px; gap:8px; }
+/* Portal-safe menus: matched radius/inset, consistent rows, quiet elevation. */
+.studio-menu { border:1px solid transparent; padding:5px; border-radius:12px; box-shadow:var(--studio-overlay-shadow); font-size:13px; overflow-y:auto; overscroll-behavior:contain; animation-duration:160ms; animation-timing-function:var(--studio-ease); }
+.studio-menu [data-slot=dropdown-menu-item] { min-height:36px; padding:7px 9px; gap:9px; font-size:14px; line-height:22px; border-radius:7px; cursor:pointer; transition:background-color 80ms; }
+.studio-menu [data-slot=dropdown-menu-item] svg { width:16px; height:16px; stroke-width:1.5; color:var(--studio-icon); }
+.studio-menu [data-slot=dropdown-menu-item][data-variant=destructive] { color:var(--destructive); }
+.studio-menu [data-slot=dropdown-menu-item][data-variant=destructive] svg { color:var(--destructive); }
+.studio-menu [data-slot=dropdown-menu-separator] { margin:4px 4px; background:var(--studio-divider); }
+.studio-menu [data-slot=dropdown-menu-label] { padding:5px 8px 7px; font-size:12px; font-weight:500; line-height:16px; }
+.studio-sources-trigger, .studio-chat-trigger { height:28px; gap:7px; color:var(--studio-icon); padding-inline:8px; font-size:14px; font-weight:400; border-radius:7px; }
+.studio-sources-trigger:hover, .studio-chat-trigger:hover { color:var(--foreground); }
+.studio-sources-trigger[aria-expanded=true] { background:var(--studio-selected); color:var(--foreground); }
+@media (hover:hover) {
+  .studio-tree-group-row:hover .studio-tree-group-link { padding-right:60px; }
+  .studio-tree-dashboard-row:hover .studio-tree-dashboard-link { padding-right:34px; }
+  .studio-tree-group-row:hover .studio-tree-group-link:not([aria-current]),
+  .studio-tree-dashboard-row:hover .studio-tree-dashboard-link:not([aria-current]) { background:var(--studio-hover); color:var(--sidebar-foreground); }
+  .studio-flat-row:hover .studio-flat-link, .studio-section-toggle:hover { background:var(--studio-hover); color:var(--sidebar-foreground); }
+  .studio-row-actions :is(a,button):hover, .studio-folder-toggle:hover { background:var(--studio-hover); color:var(--foreground); }
+  .studio-row-actions { opacity:0; transition:opacity 100ms; }
+  .studio-tree-row:hover .studio-row-actions,
+  .studio-tree-row:focus-within .studio-row-actions,
+  .studio-tree-row:has([data-state=open]) .studio-row-actions { opacity:1; }
+  .studio-chat .openui-behind-the-scenes--settled .openui-behind-the-scenes__toggle[aria-expanded=false]:hover { color:var(--openui-text-neutral-primary); }
+  .studio-icon-button:hover, .studio-prompt-suggestions button:hover, .studio-conversation-trigger:hover { background:var(--studio-hover); color:var(--foreground); }
+}
+@media (prefers-reduced-motion:no-preference) {
+  .studio-sidebar-content, .studio-brand, .studio-sidebar-rail { transition:opacity 120ms,visibility 0s 120ms; }
+  .studio-sidebar[data-collapsed=false] .studio-sidebar-content,
+  .studio-sidebar[data-collapsed=false] .studio-brand,
+  .studio-sidebar[data-collapsed=true] .studio-sidebar-rail { transition:opacity 120ms,visibility 0s; }
+  .studio-chat { transition:transform 180ms var(--studio-ease),opacity 140ms,visibility 0s; }
+  .studio-chat-slot[data-open=false] .studio-chat { transition:transform 180ms var(--studio-ease),opacity 140ms,visibility 0s 180ms; }
+  .studio-chat-trigger, .studio-header-divider { animation:studio-fade-in 140ms var(--studio-ease) both; }
+  .studio-folder-closed, .studio-folder-open { transition:opacity 140ms, transform 220ms cubic-bezier(0.34, 1.4, 0.64, 1); }
+  .studio-icon-button, .studio-send, .studio-sources-trigger, .studio-chat-trigger { transition:scale 120ms ease-out,background-color 120ms,color 120ms; }
+  .studio-icon-button:active:not(:disabled), .studio-send:active:not(:disabled), .studio-sources-trigger:active:not(:disabled), .studio-chat-trigger:active:not(:disabled) { scale:0.96; }
+  @keyframes studio-fade-in { from { opacity:0; } }
+}
+@media (prefers-reduced-motion:reduce) {
+  .studio-shell *, .studio-menu, .studio-tooltip { animation-duration:0.01ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; }
+  .studio-shell *, .studio-menu * { transition-property:opacity,background-color,color !important; transition-duration:100ms !important; }
+}
+@media (min-width:1440px) { :root { --studio-build-width:340px; } }
+@media (max-width:1100px) { :root { --studio-nav-width:224px; --studio-build-width:288px; } }
+@media (max-width:767px) {
+  .studio-sidebar { display:none; }
+  .studio-sidebar-mobile-open { display:flex; position:fixed; inset:0 auto 0 0; width:240px !important; box-shadow:var(--studio-overlay-shadow); }
+  .studio-sidebar-mobile-open .studio-brand, .studio-sidebar-mobile-open .studio-sidebar-content { opacity:1 !important; visibility:visible !important; pointer-events:auto; }
+  .studio-sidebar-mobile-open .studio-sidebar-content { width:240px; }
+  .studio-sidebar-mobile-open .studio-sidebar-rail { display:none; }
+  .studio-panel-header { padding-inline:12px; gap:8px; }
+  .studio-workspace-name { max-width:44vw; }
+}
+@media (max-width:639px) {
+  :root { --studio-build-width:min(380px,100vw); }
+  .studio-chat-slot { position:absolute; inset:0 auto 0 0; z-index:30; width:var(--studio-build-width); }
+  .studio-chat-slot[data-open=false] { position:relative; inset:auto; width:0; }
+  .studio-chat { box-shadow:var(--studio-overlay-shadow); }
+  .studio-chat-slot[data-open=false] .studio-chat { transform:translateX(-100%); }
+  .studio-canvas-empty { padding:32px 24px; }
+  .studio-workspace-name { font-size:14px; }
+}
+
+@media (hover:none) { .studio-tree-group-link { padding-right:60px; } .studio-tree-dashboard-link { padding-right:34px; } }
+
+@container (max-width:520px) { .studio-add-source-label { display:none; } }
+
+/* Phones: the chat is a bottom sheet, sliding up from below. Only it or Sources is open. */
+@media (max-width:639px) {
+  .studio-chat-slot, .studio-chat-slot[data-open=false] { position:fixed; inset:auto 0 0 0; width:100%; height:min(85dvh, 720px); z-index:40; }
+  .studio-chat-slot[data-open=false] { pointer-events:none; }
+  .studio-chat { inset:0; width:100%; min-width:0; padding-top:10px; border-right:0; border-radius:16px 16px 0 0; box-shadow:var(--studio-overlay-shadow); }
+  .studio-chat::before { content:""; position:absolute; top:6px; left:50%; width:36px; height:4px; margin-left:-18px; border-radius:999px; background:color-mix(in srgb, var(--foreground) 18%, transparent); }
+  .studio-chat-slot[data-open=false] .studio-chat { transform:translateY(100%); }
+  .studio-workspace:has(.studio-chat-slot[data-open=false]) .studio-panel-header { padding-left:10px; }
+}
