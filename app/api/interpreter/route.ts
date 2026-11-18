@@ -13,6 +13,9 @@ const requestSchema = z.object({
   version: z.string().max(200).optional(),
 });
 
+/** Total budget for one data call, the dashboard's tools included. */
+const TIMEOUT_MS = 120_000;
+
 /**
  * Runs a live dashboard's data calls. The dashboard must be this user's, and
  * the app its tools record usage against comes from OpenDashboards' own record of
@@ -30,7 +33,7 @@ export const POST = route(async (request, user) => {
     const result = await getDashboards().interpreter.execute(
       parsed.data,
       { userId: user.id, appId: dashboard.appId },
-      { signal: request.signal },
+      { signal: request.signal, timeoutMs: TIMEOUT_MS },
     );
     return Response.json({ result });
   } catch (error) {

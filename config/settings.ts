@@ -54,7 +54,7 @@ export type CommonSettings = {
     maxAgentRounds: number;
   };
   posthog: {
-    /** A dashboard or agent query; inside the dashboard interpreter's 60-second budget. */
+    /** A dashboard or agent query; inside the dashboard interpreter's 2-minute budget. */
     queryTimeoutMs: number;
     /** Checking a connection when it's added or retested. */
     checkTimeoutMs: number;
