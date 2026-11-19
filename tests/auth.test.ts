@@ -1,7 +1,7 @@
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { AuthConfigError, getAuthProvider, type AuthProvider } from "@/lib/auth";
+import { AuthConfigError, getAuthProvider, hasGatewaySession, type AuthProvider } from "@/lib/auth";
 import { devProvider } from "@/lib/auth/providers/dev";
 import { AUTHORIZATION_HEADER, supabaseProvider } from "@/lib/auth/providers/supabase";
 
@@ -148,5 +148,18 @@ describe("devProvider", () => {
     const expected = { ok: true, user: DEV };
     await expect(dev.authenticate(headers({}))).resolves.toEqual(expected);
     await expect(dev.authenticate(headers({ "x-user-id": "bob" }))).resolves.toEqual(expected);
+  });
+});
+
+describe("hasGatewaySession", () => {
+  const prod = { environment: "prod" as const, devUser: null, supabaseUrl: SUPABASE_URL };
+
+  it("is true under Supabase, even when a dev user is also configured locally", () => {
+    expect(hasGatewaySession(prod)).toBe(true);
+    expect(hasGatewaySession({ ...prod, environment: "local", devUser: DEV })).toBe(true);
+  });
+
+  it("is false for dev's fixed local user, which has no session to end", () => {
+    expect(hasGatewaySession({ environment: "local", devUser: DEV, supabaseUrl: undefined })).toBe(false);
   });
 });

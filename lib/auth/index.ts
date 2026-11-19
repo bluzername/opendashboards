@@ -53,3 +53,14 @@ export function getAuthProvider(settings: AuthSettings = currentAuthSettings()):
   if (!settings.devUser.email) throw new AuthConfigError("auth.devUser.email is empty");
   return devProvider(settings.devUser);
 }
+
+/**
+ * Whether the current user is signed in through the gateway's Supabase
+ * session, which `/auth/signout` can end. Mirrors getAuthProvider()'s own
+ * precedence: Supabase wins whenever it's configured, even locally. Dev's
+ * fixed local user has no session to end: there's nothing for a sign-out
+ * control to do.
+ */
+export function hasGatewaySession(settings: AuthSettings = currentAuthSettings()): boolean {
+  return Boolean(settings.supabaseUrl);
+}
