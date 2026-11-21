@@ -82,6 +82,18 @@ describe("guarded lookup", () => {
       await expect(lookup).rejects.toBeInstanceOf(Ipv6OnlyHostError);
     });
 
+    it("doesn't call a host IPv6-only when its A query merely failed", async () => {
+      vi.spyOn(dns, "lookup").mockImplementation(((_host: string, _options: unknown, callback: (e: NodeJS.ErrnoException) => void) =>
+        callback(Object.assign(new Error("not found"), { code: "ENOTFOUND" }))) as unknown as typeof dns.lookup);
+      vi.spyOn(dns.promises, "resolve4").mockRejectedValue(Object.assign(new Error("timed out"), { code: "ETIMEOUT" }));
+      vi.spyOn(dns.promises, "resolve6").mockResolvedValue(["2606:4700::1111"]);
+
+      const lookup = new Promise<unknown>((resolve, reject) =>
+        createGuardedLookup()("flaky.example.com", {}, (error, address) => (error ? reject(error) : resolve(address))),
+      );
+      await expect(lookup).rejects.toMatchObject({ code: "ENOTFOUND" });
+    });
+
     it("still reports a host with neither record as not found", async () => {
       vi.spyOn(dns, "lookup").mockImplementation(((_host: string, _options: unknown, callback: (e: NodeJS.ErrnoException) => void) =>
         callback(Object.assign(new Error("not found"), { code: "ENOTFOUND" }))) as unknown as typeof dns.lookup);

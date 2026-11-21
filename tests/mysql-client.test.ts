@@ -66,6 +66,7 @@ describe("toMysqlError", () => {
   it("finds an IPv6-only host inside a driver error", () => {
     const error = Object.assign(new Error("connect failed"), { cause: new Ipv6OnlyHostError("db.supabase.co") });
     expect(toMysqlError(error).code).toBe("host_ipv6_only");
+    expect(mysqlSource.toError(toMysqlError(error))?.error.message).not.toMatch(/Supabase|typo/);
   });
 
   it("gives the agent something to act on for a timeout", () => {

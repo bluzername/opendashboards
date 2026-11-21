@@ -93,8 +93,7 @@ export const mysqlSource: ConnectionSource<MysqlConfig> = {
         return invalid({
           code: "host_ipv6_only",
           field: "host",
-          message:
-            "This host only answers over IPv6, which OpenDashboards can't reach. If this is Supabase, use the Session pooler string from Supabase → Connect instead of the direct connection string.",
+          message: "This host only answers over IPv6, which OpenDashboards can't reach. Use a host name that has an IPv4 address.",
         });
       case "unreachable":
         return unavailable({

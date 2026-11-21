@@ -42,10 +42,15 @@ export class Ipv6OnlyHostError extends Error {
   }
 }
 
-/** Whether a host resolves over IPv6 only: an AAAA record, but no A record. */
+/**
+ * Whether a host resolves over IPv6 only: an AAAA record, and DNS answering
+ * that there is no A record. Any other A-query failure (a timeout, SERVFAIL)
+ * says nothing about the host, so it doesn't count.
+ */
 async function isIpv6Only(hostname: string): Promise<boolean> {
   const [v4, v6] = await Promise.allSettled([dns.promises.resolve4(hostname), dns.promises.resolve6(hostname)]);
-  return v4.status === "rejected" && v6.status === "fulfilled" && v6.value.length > 0;
+  const noARecord = v4.status === "rejected" && (v4.reason as NodeJS.ErrnoException)?.code === dns.NODATA;
+  return noARecord && v6.status === "fulfilled" && v6.value.length > 0;
 }
 
 /** Whether an IP address (v4 or v6, as a string) is a public unicast address. */
